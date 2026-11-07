@@ -397,7 +397,7 @@ Nothing fails silently: every failure path ends in an `automationLog` row.
 ## Testing
 
 ```bash
-npm test          # 80 vitest tests
+npm test          # 88 vitest tests
 npm run lint
 npm run typecheck
 npm run build
@@ -498,7 +498,7 @@ Source: [`docs/assignment.md`](docs/assignment.md).
 
 ### Known limitations and verification status
 
-Verified automatically: `npm test` (80 tests), `npm run lint`, `npm run typecheck` and `npm run build` all pass.
+Verified automatically: `npm test` (88 tests), `npm run lint`, `npm run typecheck` and `npm run build` all pass.
 The n8n workflow JSON is tested structurally and its Code nodes are tested against the signature contract.
 
 **Not yet verified** when this README was written:
