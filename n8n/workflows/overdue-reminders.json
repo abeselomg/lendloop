@@ -161,7 +161,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const ctx = $('Fan out').item.json;\nconst res = $input.item.json;\nconst code = Number(res.statusCode);\nif (code >= 200 && code < 300) {\n  return { json: { status: 'sent', channel: 'email', providerMessageId: res.body && res.body.id } };\n}\nconst severe = code >= 500 || code === 429;\nconst detail = (res.body && (res.body.message || res.body.name)) || 'request rejected';\nconst error = code + ' ' + detail;\nconsole.log('[LendLoop mock notification] Resend rejected the email, falling back to mock', JSON.stringify({ error, to: ctx.to, subject: ctx.subject, text: ctx.text }));\nreturn { json: severe ? { status: 'failed', channel: 'mock', error, severe: true } : { status: 'failed', channel: 'mock', error } };"
+        "jsCode": "const ctx = $('Fan out').item.json;\nconst res = $input.item.json;\nconst code = Number(res.statusCode);\nif (code >= 200 && code < 300) {\n  return { json: { status: 'sent', channel: 'email', providerMessageId: res.body && res.body.id, severe: false } };\n}\nconst severe = code >= 500 || code === 429;\nconst detail = (res.body && (res.body.message || res.body.name)) || 'request rejected';\nconst error = code + ' ' + detail;\nconsole.log('[LendLoop mock notification] Resend rejected the email, falling back to mock', JSON.stringify({ error, to: ctx.to, subject: ctx.subject, text: ctx.text }));\nreturn { json: { status: 'failed', channel: 'mock', error, severe } };"
       },
       "id": "11111111-0000-4000-8000-000000000020",
       "name": "Classify result",
@@ -175,7 +175,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const ctx = $('Fan out').item.json;\nconsole.log('[LendLoop mock notification]', JSON.stringify({ to: ctx.to, subject: ctx.subject, text: ctx.text }));\nreturn { json: { status: 'sent', channel: 'mock' } };"
+        "jsCode": "const ctx = $('Fan out').item.json;\nconsole.log('[LendLoop mock notification]', JSON.stringify({ to: ctx.to, subject: ctx.subject, text: ctx.text }));\nreturn { json: { status: 'sent', channel: 'mock', severe: false } };"
       },
       "id": "11111111-0000-4000-8000-000000000021",
       "name": "Mock log",
@@ -189,7 +189,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const crypto = require('crypto');\nconst secret = $env.N8N_TO_CONVEX_SECRET;\nif (!secret) throw new Error('N8N_TO_CONVEX_SECRET is not configured');\nconst sign = (body) => {\n  const timestamp = String(Date.now());\n  const signature = 'v1=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + body).digest('hex');\n  return { timestamp, signature };\n};\nconst ctx = $('Fan out').item.json;\nconst result = $input.item.json;\nconst body = JSON.stringify({ reminderKey: ctx.reminderKey, loanId: ctx.loanId, channel: result.channel, status: result.status, error: result.error, sentAt: new Date().toISOString() });\nreturn { json: { body, ...sign(body), idempotencyKey: ctx.reminderKey } };"
+        "jsCode": "const crypto = require('crypto');\nconst secret = $env.N8N_TO_CONVEX_SECRET;\nif (!secret) throw new Error('N8N_TO_CONVEX_SECRET is not configured');\nconst sign = (body) => {\n  const timestamp = String(Date.now());\n  const signature = 'v1=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + body).digest('hex');\n  return { timestamp, signature };\n};\nconst ctx = $('Fan out').item.json;\nconst result = $input.item.json;\nconst body = JSON.stringify({ reminderKey: ctx.reminderKey, loanId: ctx.loanId, channel: result.channel, status: result.status, error: result.error, sentAt: new Date().toISOString() });\nreturn { json: { body, ...sign(body), idempotencyKey: ctx.reminderKey, severe: result.severe === true, error: result.error } };"
       },
       "id": "11111111-0000-4000-8000-000000000022",
       "name": "Sign write-back",
@@ -242,7 +242,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "if ($('Classify result').item.json.severe === true) {\n  throw new Error('Email provider failure: ' + $('Classify result').item.json.error);\n}\nreturn { json: $input.item.json };"
+        "jsCode": "if ($('Sign write-back').item.json.severe === true) {\n  throw new Error('Email provider failure: ' + $('Sign write-back').item.json.error);\n}\nreturn { json: $input.item.json };"
       },
       "id": "11111111-0000-4000-8000-000000000024",
       "name": "Raise on severe",

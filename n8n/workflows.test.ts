@@ -1,7 +1,9 @@
 // @vitest-environment node
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
+import { computeSignature } from "../convex/lib/signature";
 
 const files = ["loan-notification", "overdue-reminders", "error-handler"] as const;
 const dir = join(__dirname, "workflows");
@@ -136,5 +138,61 @@ describe("n8n workflow exports", () => {
     expect(targets(w, "Signature valid?", 0)).toEqual(["Respond 202"]);
     expect(targets(w, "Signature valid?", 1)).toEqual(["Respond 401"]);
     expect(reach(w, "Respond 401").size).toBe(0);
+  });
+});
+
+describe("severe flag is carried forward (no reaching back to unexecuted nodes)", () => {
+  const code = (w: Workflow, name: string): string => w.nodes.find((n) => n.name === name)!.parameters.jsCode;
+
+  it("Raise on severe reads Sign write-back, never Classify result; Mock log/Sign forward severe", () => {
+    for (const f of ["loan-notification", "overdue-reminders"]) {
+      const w = load(f);
+      expect(code(w, "Raise on severe")).not.toContain("'Classify result'");
+      expect(code(w, "Raise on severe")).toContain("'Sign write-back'");
+      expect(code(w, "Mock log")).toMatch(/severe: false/);
+      expect(code(w, "Sign write-back")).toMatch(/severe: result.severe === true/);
+    }
+  });
+
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+  const req = createRequire(import.meta.url);
+  async function run(jsCode: string, input: Record<string, unknown>, executed: Record<string, Record<string, unknown>>) {
+    const fn = new AsyncFunction("$input", "$env", "$", "require", "Buffer", jsCode);
+    const $ = (name: string) => {
+      if (!(name in executed)) throw new Error("ExpressionError: node '" + name + "' has not executed");
+      return { item: { json: executed[name] } };
+    };
+    const $input = { item: { json: input }, first: () => ({ json: input }) };
+    const out = await fn.call({ helpers: {} }, $input, { N8N_TO_CONVEX_SECRET: "test-secret" }, $, req, Buffer);
+    return (Array.isArray(out) ? out[0] : out).json as Record<string, any>;
+  }
+
+  it.each([
+    ["loan-notification", "Build message", { to: "a@b.c", subject: "S", text: "T", eventId: "evt1", loanId: "l1" }],
+    ["overdue-reminders", "Fan out", { to: "a@b.c", subject: "S", text: "T", reminderKey: "l1:2026-01-01", loanId: "l1" }],
+  ])("mock path completes and signs correctly: %s", async (f, ctxNode, ctx) => {
+    const w = load(f);
+    const executed: Record<string, Record<string, unknown>> = { [ctxNode]: ctx };
+    const mock = await run(code(w, "Mock log"), ctx, executed);
+    expect(mock).toMatchObject({ status: "sent", channel: "mock", severe: false });
+    const signed = await run(code(w, "Sign write-back"), mock, executed);
+    executed["Sign write-back"] = signed;
+    const body = JSON.parse(signed.body);
+    expect(body).toMatchObject({ status: "sent", channel: "mock" });
+    expect(signed.severe).toBe(false);
+    const expected = "v1=" + (await computeSignature("test-secret", Number(signed.timestamp), signed.body));
+    expect(signed.signature).toBe(expected);
+    await expect(run(code(w, "Raise on severe"), { ok: true, created: true }, executed)).resolves.toBeDefined();
+  });
+
+  it("a severe failure is recorded and then raised", async () => {
+    const w = load("loan-notification");
+    const ctx = { to: "a@b.c", subject: "S", text: "T", eventId: "evt1", loanId: "l1" };
+    const executed: Record<string, Record<string, unknown>> = { "Build message": ctx };
+    const classified = { status: "failed", channel: "mock", error: "503 down", severe: true };
+    const signed = await run(code(w, "Sign write-back"), classified, executed);
+    expect(JSON.parse(signed.body)).toMatchObject({ status: "failed", error: "503 down" });
+    executed["Sign write-back"] = signed;
+    await expect(run(code(w, "Raise on severe"), { ok: true }, executed)).rejects.toThrow("Email provider failure: 503 down");
   });
 });
