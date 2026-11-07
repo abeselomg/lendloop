@@ -8,8 +8,11 @@
  * @module
  */
 
+import type * as lib_access from "../lib/access.js";
 import type * as lib_env from "../lib/env.js";
+import type * as lib_signature from "../lib/signature.js";
 import type * as lib_validation from "../lib/validation.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -18,8 +21,11 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "lib/access": typeof lib_access;
   "lib/env": typeof lib_env;
+  "lib/signature": typeof lib_signature;
   "lib/validation": typeof lib_validation;
+  users: typeof users;
 }>;
 
 /**
