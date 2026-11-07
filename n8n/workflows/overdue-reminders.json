@@ -1,0 +1,356 @@
+{
+  "id": "LLOverdueRemind1",
+  "name": "LendLoop – Overdue reminders",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "11111111-0000-4000-8000-000000000011",
+      "name": "Daily 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst secret = $env.N8N_TO_CONVEX_SECRET;\nif (!secret) throw new Error('N8N_TO_CONVEX_SECRET is not configured');\nconst sign = (body) => {\n  const timestamp = String(Date.now());\n  const signature = 'v1=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + body).digest('hex');\n  return { timestamp, signature };\n};\nconst { timestamp, signature } = sign('');\nreturn [{ json: { timestamp, signature } }];"
+      },
+      "id": "11111111-0000-4000-8000-000000000012",
+      "name": "Sign request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.LENDLOOP_CONVEX_SITE_URL }}/n8n/overdue-loans",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-lendloop-timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "x-lendloop-signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "11111111-0000-4000-8000-000000000013",
+      "name": "Fetch overdue loans",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nreturn (data.loans || []).map((l) => ({\n  json: {\n    ...l,\n    to: l.borrower.email,\n    firstName: l.borrower.firstName,\n    reminderKey: l.loanId + ':' + data.today,\n    subject: 'Reminder: ' + l.toolName + ' was due ' + l.endDate,\n    text: 'Hi ' + l.borrower.firstName + ', your loan of ' + l.toolName + ' from ' + l.lenderFirstName + ' was due on ' + l.endDate + ' (' + l.daysOverdue + ' day(s) ago). Please return it and ask them to mark it returned. — LendLoop',\n  },\n}));"
+      },
+      "id": "11111111-0000-4000-8000-000000000014",
+      "name": "Fan out",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a1b2c3d4-0000-4000-8000-000000000001",
+              "leftValue": "={{ $env.LENDLOOP_EMAIL_ENABLED }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "11111111-0000-4000-8000-000000000015",
+      "name": "Email enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $json.eventId || $json.reminderKey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ from: $env.LENDLOOP_EMAIL_FROM, to: [$json.to], subject: $json.subject, text: $json.text }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "11111111-0000-4000-8000-000000000016",
+      "name": "Send via Resend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LLResendApiKey01",
+          "name": "Resend API"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const ctx = $('Fan out').item.json;\nconst res = $input.item.json;\nconst code = Number(res.statusCode);\nif (code >= 200 && code < 300) {\n  return { json: { status: 'sent', channel: 'email', providerMessageId: res.body && res.body.id } };\n}\nif (code >= 500) {\n  throw new Error('Resend server error ' + code);\n}\nconst detail = (res.body && (res.body.message || res.body.name)) || 'request rejected';\nconst error = code + ' ' + detail;\nconsole.log('[LendLoop mock notification] Resend rejected the email, falling back to mock', JSON.stringify({ error, to: ctx.to, subject: ctx.subject, text: ctx.text }));\nreturn { json: { status: 'failed', channel: 'mock', error } };"
+      },
+      "id": "11111111-0000-4000-8000-000000000017",
+      "name": "Classify result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const ctx = $('Fan out').item.json;\nconsole.log('[LendLoop mock notification]', JSON.stringify({ to: ctx.to, subject: ctx.subject, text: ctx.text }));\nreturn { json: { status: 'sent', channel: 'mock' } };"
+      },
+      "id": "11111111-0000-4000-8000-000000000018",
+      "name": "Mock log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const crypto = require('crypto');\nconst secret = $env.N8N_TO_CONVEX_SECRET;\nif (!secret) throw new Error('N8N_TO_CONVEX_SECRET is not configured');\nconst sign = (body) => {\n  const timestamp = String(Date.now());\n  const signature = 'v1=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + body).digest('hex');\n  return { timestamp, signature };\n};\nconst ctx = $('Fan out').item.json;\nconst result = $input.item.json;\nconst body = JSON.stringify({ reminderKey: ctx.reminderKey, loanId: ctx.loanId, channel: result.channel, status: result.status, error: result.error, sentAt: new Date().toISOString() });\nreturn { json: { body, ...sign(body), idempotencyKey: ctx.reminderKey } };"
+      },
+      "id": "11111111-0000-4000-8000-000000000019",
+      "name": "Sign write-back",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LENDLOOP_CONVEX_SITE_URL }}/n8n/reminders",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-lendloop-timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "x-lendloop-signature",
+              "value": "={{ $json.signature }}"
+            },
+            {
+              "name": "x-lendloop-event-id",
+              "value": "={{ $json.idempotencyKey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "11111111-0000-4000-8000-000000000020",
+      "name": "Record reminder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    }
+  ],
+  "connections": {
+    "Daily 09:00": {
+      "main": [
+        [
+          {
+            "node": "Sign request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign request": {
+      "main": [
+        [
+          {
+            "node": "Fetch overdue loans",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch overdue loans": {
+      "main": [
+        [
+          {
+            "node": "Fan out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fan out": {
+      "main": [
+        [
+          {
+            "node": "Email enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email enabled?": {
+      "main": [
+        [
+          {
+            "node": "Send via Resend",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mock log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send via Resend": {
+      "main": [
+        [
+          {
+            "node": "Classify result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify result": {
+      "main": [
+        [
+          {
+            "node": "Sign write-back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock log": {
+      "main": [
+        [
+          {
+            "node": "Sign write-back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign write-back": {
+      "main": [
+        [
+          {
+            "node": "Record reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "LLErrorHandler01"
+  },
+  "pinData": {}
+}

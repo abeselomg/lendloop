@@ -1,0 +1,122 @@
+{
+  "id": "LLErrorHandler01",
+  "name": "LendLoop – Error handler",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "11111111-0000-4000-8000-000000000021",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const e = $input.first().json;\nreturn [{ json: {\n  executionId: String(e.execution?.id ?? 'unknown'),\n  workflowName: e.workflow?.name ?? 'unknown',\n  nodeName: e.execution?.lastNodeExecuted,\n  message: e.execution?.error?.message ?? 'Unknown error',\n  failedAt: new Date().toISOString(),\n} }];"
+      },
+      "id": "11111111-0000-4000-8000-000000000022",
+      "name": "Summarize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst secret = $env.N8N_TO_CONVEX_SECRET;\nif (!secret) throw new Error('N8N_TO_CONVEX_SECRET is not configured');\nconst sign = (body) => {\n  const timestamp = String(Date.now());\n  const signature = 'v1=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + body).digest('hex');\n  return { timestamp, signature };\n};\nconst d = $input.first().json;\nconst body = JSON.stringify({ executionId: d.executionId, workflowName: d.workflowName, nodeName: d.nodeName, message: d.message, failedAt: d.failedAt });\nreturn [{ json: { body, ...sign(body), idempotencyKey: d.executionId } }];"
+      },
+      "id": "11111111-0000-4000-8000-000000000023",
+      "name": "Sign",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LENDLOOP_CONVEX_SITE_URL }}/n8n/automation-errors",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-lendloop-timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "x-lendloop-signature",
+              "value": "={{ $json.signature }}"
+            },
+            {
+              "name": "x-lendloop-event-id",
+              "value": "={{ $json.idempotencyKey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "11111111-0000-4000-8000-000000000024",
+      "name": "Record automation error",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Summarize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize": {
+      "main": [
+        [
+          {
+            "node": "Sign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign": {
+      "main": [
+        [
+          {
+            "node": "Record automation error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

@@ -1,0 +1,33 @@
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.46.6
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    env_file:
+      - .env
+    environment:
+      # n8n runtime
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?set N8N_ENCRYPTION_KEY in n8n/.env}
+      N8N_RUNNERS_ENABLED: "true"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_SECURE_COOKIE: "false" # local http only; remove behind HTTPS
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false" # workflows read secrets via $env
+      NODE_FUNCTION_ALLOW_BUILTIN: crypto
+      GENERIC_TIMEZONE: UTC
+      TZ: UTC
+      WEBHOOK_URL: ${N8N_PUBLIC_URL:-http://localhost:5678}
+      # LendLoop integration (referenced by workflows as $env.*)
+      CONVEX_TO_N8N_SECRET: ${CONVEX_TO_N8N_SECRET:?set CONVEX_TO_N8N_SECRET in n8n/.env}
+      N8N_TO_CONVEX_SECRET: ${N8N_TO_CONVEX_SECRET:?set N8N_TO_CONVEX_SECRET in n8n/.env}
+      LENDLOOP_CONVEX_SITE_URL: ${LENDLOOP_CONVEX_SITE_URL:?set LENDLOOP_CONVEX_SITE_URL in n8n/.env}
+      LENDLOOP_EMAIL_ENABLED: ${LENDLOOP_EMAIL_ENABLED:-false}
+      LENDLOOP_EMAIL_FROM: ${LENDLOOP_EMAIL_FROM:-LendLoop <onboarding@resend.dev>}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./workflows:/home/node/workflows:ro
+
+volumes:
+  n8n_data:
