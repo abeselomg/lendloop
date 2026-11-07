@@ -104,8 +104,7 @@ describe("automation outbox", () => {
   });
 
   it("fails permanently after MAX_ATTEMPTS with webhook_failed log", async () => {
-    const { t, event } = await setup();
-    await flush(t);
+    const { t, event } = await setup(); // not flushed: event stays pending
     for (let i = 0; i < MAX_ATTEMPTS; i++) {
       const r = await t.mutation(internal.automation.markAttemptFailed, { eventId: event._id, error: "boom" });
       expect(r.willRetry).toBe(i < MAX_ATTEMPTS - 1);
@@ -113,10 +112,32 @@ describe("automation outbox", () => {
     const after = await getEvent(t, event._id);
     expect(after?.status).toBe("failed");
     expect(after?.attempts).toBe(MAX_ATTEMPTS);
+    expect(after?.lastError).toBe("boom");
     const failed = (await logs(t)).filter((x) => x.kind === "webhook_failed");
     expect(failed).toHaveLength(1);
     expect(failed[0].message).toBe("Could not reach n8n after 5 attempts: boom");
     expect(failed[0].idempotencyKey).toBe(`failed:${event._id}`);
+  });
+
+  it("orphaned event (loan deleted) fails terminally without calling fetch", async () => {
+    const { t, event, loanId } = await setup();
+    await t.run((ctx) => ctx.db.delete(loanId));
+    await flush(t);
+    expect(fetchMock).not.toHaveBeenCalled();
+    const after = await getEvent(t, event._id);
+    expect(after?.status).toBe("failed");
+    expect(after?.lastError).toBe("Loan or recipient no longer exists");
+    expect((await logs(t)).filter((x) => x.kind === "webhook_failed")).toHaveLength(1);
+  });
+
+  it("re-running deliverEvent on a delivered event is a no-op", async () => {
+    const { t, event } = await setup();
+    await flush(t);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await t.action(internal.automation.deliverEvent, { eventId: event._id });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect((await logs(t)).filter((x) => x.kind === "webhook_delivered")).toHaveLength(1);
+    expect((await getEvent(t, event._id))?.status).toBe("delivered");
   });
 
   it("missing webhook URL marks failed immediately with readable error", async () => {

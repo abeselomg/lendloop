@@ -50,18 +50,23 @@ export async function declinePendingLoansForTool(ctx: MutationCtx, toolId: Id<"t
   return pending.length;
 }
 
+export type EventPayloadResult =
+  | { kind: "skip" }
+  | { kind: "orphaned" }
+  | { kind: "ok"; payload: LoanEventPayload };
+
 export const getEventPayload = internalQuery({
   args: { eventId: v.id("automationEvents") },
-  handler: async (ctx, { eventId }): Promise<LoanEventPayload | null> => {
+  handler: async (ctx, { eventId }): Promise<EventPayloadResult> => {
     const event = await ctx.db.get(eventId);
-    if (!event || event.status !== "pending") return null;
+    if (!event || event.status !== "pending") return { kind: "skip" };
     const loan = await ctx.db.get(event.loanId);
     const recipient = await ctx.db.get(event.recipientUserId);
-    if (!loan || !recipient) return null;
+    if (!loan || !recipient) return { kind: "orphaned" };
     const role = event.type === "loan.requested" || event.type === "loan.cancelled" ? "lender" : "borrower";
     const counterpart = await ctx.db.get(role === "lender" ? loan.borrowerId : loan.lenderId);
     const base = process.env.APP_URL ?? "http://localhost:3000";
-    return {
+    const payload: LoanEventPayload = {
       eventId: event._id,
       type: event.type,
       occurredAt: new Date(event.createdAt).toISOString(),
@@ -76,6 +81,7 @@ export const getEventPayload = internalQuery({
       counterpartFirstName: counterpart ? firstNameOf(counterpart) : "Someone",
       appUrl: base + (role === "lender" ? "/incoming" : "/requests"),
     };
+    return { kind: "ok", payload };
   },
 });
 
@@ -83,11 +89,9 @@ export const markDelivered = internalMutation({
   args: { eventId: v.id("automationEvents") },
   handler: async (ctx, { eventId }) => {
     const event = await ctx.db.get(eventId);
-    if (!event) return null;
+    if (!event || event.status !== "pending") return null;
     const now = Date.now();
-    if (event.status !== "delivered") {
-      await ctx.db.patch(eventId, { status: "delivered", deliveredAt: now });
-    }
+    await ctx.db.patch(eventId, { status: "delivered", deliveredAt: now });
     const key = `delivered:${eventId}`;
     const existing = await ctx.db.query("automationLog").withIndex("by_key", (q) => q.eq("idempotencyKey", key)).first();
     if (!existing) {
@@ -108,7 +112,7 @@ export const markAttemptFailed = internalMutation({
   args: { eventId: v.id("automationEvents"), error: v.string(), terminal: v.optional(v.boolean()) },
   handler: async (ctx, { eventId, error, terminal }): Promise<{ willRetry: boolean }> => {
     const event = await ctx.db.get(eventId);
-    if (!event) return { willRetry: false };
+    if (!event || event.status !== "pending") return { willRetry: false };
     const now = Date.now();
     const attempts = terminal ? MAX_ATTEMPTS : event.attempts + 1;
     if (!terminal && attempts < MAX_ATTEMPTS) {
@@ -139,8 +143,16 @@ export const markAttemptFailed = internalMutation({
 export const deliverEvent = internalAction({
   args: { eventId: v.id("automationEvents") },
   handler: async (ctx, { eventId }): Promise<null> => {
-    const payload = await ctx.runQuery(internal.automation.getEventPayload, { eventId });
-    if (!payload) return null;
+    const result = await ctx.runQuery(internal.automation.getEventPayload, { eventId });
+    if (result.kind === "skip") return null;
+    if (result.kind === "orphaned") {
+      await ctx.runMutation(internal.automation.markAttemptFailed, {
+        eventId,
+        error: "Loan or recipient no longer exists",
+        terminal: true,
+      });
+      return null;
+    }
     const url = process.env.N8N_LOAN_EVENT_WEBHOOK_URL;
     const secret = process.env.CONVEX_TO_N8N_SECRET;
     const missing = !url ? "N8N_LOAN_EVENT_WEBHOOK_URL" : !secret ? "CONVEX_TO_N8N_SECRET" : null;
@@ -152,19 +164,22 @@ export const deliverEvent = internalAction({
       });
       return null;
     }
+    const body = JSON.stringify(result.payload);
+    const headers = await signedHeaders(secret, body, { eventId });
+    let res: Response;
     try {
-      const body = JSON.stringify(payload);
-      const res = await fetch(url, { method: "POST", headers: await signedHeaders(secret, body, { eventId }), body });
-      if (res.ok) {
-        await ctx.runMutation(internal.automation.markDelivered, { eventId });
-      } else {
-        await ctx.runMutation(internal.automation.markAttemptFailed, { eventId, error: `HTTP ${res.status}` });
-      }
+      res = await fetch(url, { method: "POST", headers, body });
     } catch (error) {
       await ctx.runMutation(internal.automation.markAttemptFailed, {
         eventId,
         error: error instanceof Error ? error.message : String(error),
       });
+      return null;
+    }
+    if (res.ok) {
+      await ctx.runMutation(internal.automation.markDelivered, { eventId });
+    } else {
+      await ctx.runMutation(internal.automation.markAttemptFailed, { eventId, error: `HTTP ${res.status}` });
     }
     return null;
   },
