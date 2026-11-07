@@ -3,10 +3,11 @@ import { v, type Validator } from "convex/values";
 import { CATEGORIES, CONDITIONS, EVENT_TYPES, LOAN_STATUSES, LOG_KINDS } from "./lib/validation";
 
 const literals = <T extends readonly [string, string, ...string[]]>(arr: T) =>
-  v.union(...(arr.map((x) => v.literal(x)) as unknown as [any, any, ...any[]])) as unknown as Validator<
-    T[number],
-    "required"
-  >;
+  // v.union requires a non-empty tuple type; arr is non-empty by T's constraint, so the cast only
+  // reconciles the mapped array with that tuple type (no runtime effect).
+  v.union(
+    ...(arr.map((x) => v.literal(x)) as unknown as [Validator<string>, Validator<string>, ...Validator<string>[]]),
+  ) as unknown as Validator<T[number], "required">;
 
 export const categoryValidator = literals(CATEGORIES);
 export const conditionValidator = literals(CONDITIONS);

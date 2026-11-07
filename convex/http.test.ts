@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "./_generated/api";
+import type { Doc } from "./_generated/dataModel";
 import { makeT, signIn } from "./test.setup";
 import { computeSignature, signedHeaders, SIGNATURE_HEADER, TIMESTAMP_HEADER } from "./lib/signature";
 
@@ -35,7 +36,7 @@ async function setup() {
         updatedAt: Date.now(),
         reminderCount: 0,
         ...over,
-      } as any),
+      } as unknown as Omit<Doc<"loans">, "_id" | "_creationTime">),
     );
   return { t, loanId, event, mkLoan };
 }

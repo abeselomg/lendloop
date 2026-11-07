@@ -14,7 +14,7 @@ const TOOLS = [
 export const demo = internalMutation({
   args: {},
   handler: async (ctx) => {
-    let user = await ctx.db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", "seed:demo"))
       .unique();

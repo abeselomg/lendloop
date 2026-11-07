@@ -14,7 +14,7 @@ type Node = {
   type: string;
   typeVersion: number;
   position: number[];
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown> & { jsCode: string; options: { rawBody?: boolean }; responseMode?: string; path?: string };
   credentials?: Record<string, Record<string, unknown>>;
   retryOnFail?: boolean;
   maxTries?: number;
@@ -164,7 +164,7 @@ describe("severe flag is carried forward (no reaching back to unexecuted nodes)"
     };
     const $input = { item: { json: input }, first: () => ({ json: input }) };
     const out = await fn.call({ helpers: {} }, $input, { N8N_TO_CONVEX_SECRET: "test-secret" }, $, req, Buffer);
-    return (Array.isArray(out) ? out[0] : out).json as Record<string, any>;
+    return (Array.isArray(out) ? out[0] : out).json as Record<string, unknown> & { body: string };
   }
 
   it.each([
