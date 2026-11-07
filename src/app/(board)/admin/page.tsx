@@ -97,11 +97,12 @@ function TrustToggle({
         onClick={onClick}
         className={`rounded-full px-4 py-1.5 text-sm font-medium transition-opacity disabled:opacity-60 ${
           trusted
-            ? "bg-accent text-accent-ink hover:opacity-90"
+            ? "border border-accent bg-accent-soft text-accent"
             : "border border-line hover:border-accent"
         }`}
       >
-        {busy ? "Saving…" : trusted ? "Remove trusted" : "Mark trusted"}
+        {trusted ? <span aria-hidden="true">✓ </span> : null}
+        Trusted lender
       </button>
     </>
   );
