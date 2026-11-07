@@ -3,6 +3,7 @@ import { mutation, query } from "./_generated/server";
 import { categoryValidator, conditionValidator } from "./schema";
 import { requireAdmin, requireUser } from "./lib/access";
 import { validateToolInput } from "./lib/validation";
+import { declinePendingLoansForTool } from "./automation";
 import { isToolOnLoan, toToolView } from "./lib/views";
 
 const byName = <T extends { name: string }>(a: T, b: T) => a.name.localeCompare(b.name);
@@ -111,6 +112,7 @@ export const remove = mutation({
     const user = await requireUser(ctx);
     const tool = await ctx.db.get(toolId);
     if (!tool || (tool.ownerId !== user._id && user.role !== "admin")) throw new ConvexError("Not your listing");
+    await declinePendingLoansForTool(ctx, toolId);
     await ctx.db.delete(toolId);
     return null;
   },
