@@ -98,6 +98,7 @@ export default function ListingsPage() {
                   <div className="mt-4 flex items-center justify-end gap-2 border-t border-line pt-4">
                     <Link
                       href={`/listings/${t._id}/edit`}
+                      aria-label={`Edit ${t.name}`}
                       className="rounded-full border border-line px-4 py-1.5 text-sm font-medium hover:border-accent"
                     >
                       Edit
@@ -106,6 +107,7 @@ export default function ListingsPage() {
                       type="button"
                       disabled={removing === t._id}
                       onClick={() => onDelete(t._id)}
+                      aria-label={`Delete ${t.name}`}
                       className="rounded-full px-4 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60 dark:text-red-300 dark:hover:bg-red-400/10"
                     >
                       {removing === t._id ? "Removing…" : "Delete"}

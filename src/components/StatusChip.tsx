@@ -12,7 +12,6 @@ const STYLES: Record<LoanStatus, string> = {
 export function StatusChip({ status }: { status: LoanStatus }) {
   return (
     <span
-      role="status"
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STYLES[status]}`}
     >
       {STATUS_LABELS[status]}
