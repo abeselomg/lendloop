@@ -47,6 +47,27 @@ describe("loans", () => {
     );
   });
 
+  it("approve rejects a pending loan whose dates have passed", async () => {
+    const { t, bob, toolId } = await setup();
+    const alice = await userId(t, "clerk_alice");
+    const bobId = await userId(t, "clerk_bob");
+    const loanId = await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        toolId,
+        toolName: "Cordless Drill",
+        borrowerId: alice,
+        lenderId: bobId,
+        startDate: addDays(-5),
+        endDate: addDays(-2),
+        status: "pending",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        reminderCount: 0,
+      } as never),
+    );
+    await expect(bob.mutation(api.loans.approve, { loanId })).rejects.toThrow("Those dates have passed");
+  });
+
   it("cannot request own tool", async () => {
     const { bob, toolId } = await setup();
     await expect(bob.mutation(api.loans.request, { toolId, startDate: addDays(1), endDate: addDays(2) })).rejects.toThrow(

@@ -37,6 +37,11 @@ async function keyExists(ctx: MutationCtx, key: string): Promise<boolean> {
   return hit !== null;
 }
 
+function sanitizeError(e: string | undefined): string | undefined {
+  if (e === undefined) return undefined;
+  return e.replace(/[^\s@]+@[^\s@]+/g, "[email]").slice(0, 200);
+}
+
 function compact(o: Record<string, string | number | boolean | undefined>): Record<string, string | number | boolean> {
   const out: Record<string, string | number | boolean> = {};
   for (const [k, x] of Object.entries(o)) if (x !== undefined) out[k] = x;
@@ -52,7 +57,8 @@ export const recordNotification = internalMutation({
     error: v.optional(v.string()),
     sentAt: v.string(),
   },
-  handler: async (ctx, a): Promise<{ created: boolean }> => {
+  handler: async (ctx, raw): Promise<{ created: boolean }> => {
+    const a = { ...raw, error: sanitizeError(raw.error) };
     const id = ctx.db.normalizeId("automationEvents", a.eventId);
     const event = id ? await ctx.db.get(id) : null;
     if (!event) throw new ConvexError("Unknown eventId");
@@ -80,7 +86,8 @@ export const recordReminder = internalMutation({
     error: v.optional(v.string()),
     sentAt: v.string(),
   },
-  handler: async (ctx, a): Promise<{ created: boolean }> => {
+  handler: async (ctx, raw): Promise<{ created: boolean }> => {
+    const a = { ...raw, error: sanitizeError(raw.error) };
     const id = ctx.db.normalizeId("loans", a.loanId);
     const loan = id ? await ctx.db.get(id) : null;
     if (!id || !loan) throw new ConvexError("Unknown loanId");

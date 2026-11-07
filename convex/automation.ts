@@ -7,7 +7,7 @@ import { signedHeaders } from "./lib/signature";
 import type { ActivityEntry } from "./lib/views";
 import type { EventType, LoanStatus } from "./lib/validation";
 
-export const BACKOFF_MS = [30_000, 120_000, 600_000, 1_800_000, 7_200_000];
+export const BACKOFF_MS = [30_000, 120_000, 600_000, 1_800_000];
 export const MAX_ATTEMPTS = 5;
 
 export type LoanEventPayload = {

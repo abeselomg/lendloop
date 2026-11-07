@@ -47,6 +47,7 @@ export const approve = mutation({
     if (!loan) throw new ConvexError("Loan not found");
     if (loan.lenderId !== user._id) throw new ConvexError("Only the lender can do that");
     if (loan.status !== "pending") throw new ConvexError("Request is not pending");
+    if (loan.endDate < todayUtc()) throw new ConvexError("Those dates have passed");
     const approved = await ctx.db
       .query("loans")
       .withIndex("by_tool_status", (q) => q.eq("toolId", loan.toolId).eq("status", "approved"))

@@ -112,6 +112,17 @@ describe("n8n http endpoints", () => {
     expect(rows[0]).toMatchObject({ loanId, source: "n8n", message: "Email sent", idempotencyKey: `notif:${event._id}` });
   });
 
+  it("POST notifications sanitizes provider errors (emails stripped, capped at 200 chars)", async () => {
+    const { t, event } = await setup();
+    const error = "Resend: account owner@example.com is not verified " + "x".repeat(300);
+    const res = await postJson(t, "/n8n/notifications", { eventId: event._id, channel: "email", status: "failed", error, sentAt: "2026-01-01T00:00:00Z" });
+    expect(res.status).toBe(200);
+    const row = (await logs(t)).find((l) => l.kind === "notification_failed")!;
+    expect(row.message).not.toContain("owner@example.com");
+    expect(row.message).toContain("[email]");
+    expect(row.message.length).toBeLessThanOrEqual("Email failed: ".length + 200);
+  });
+
   it("POST reminders bumps reminderCount once across two identical calls", async () => {
     const { t, mkLoan } = await setup();
     const loanId = await mkLoan({});
