@@ -147,4 +147,56 @@ describe("loans", () => {
     expect(all[0].viewerRole).toBe("admin");
     expect(all[0].activity).toEqual([]);
   });
+
+  it("admin who is neither party cannot approve/decline/markReturned/cancel", async () => {
+    const { t, alice, bob, toolId } = await setup();
+    const admin = await signIn(t, "admin");
+    const pending = await alice.mutation(api.loans.request, { toolId, startDate: addDays(1), endDate: addDays(2) });
+    const approved = await alice.mutation(api.loans.request, { toolId, startDate: addDays(5), endDate: addDays(6) });
+    await bob.mutation(api.loans.approve, { loanId: approved });
+    const countBefore = (await events(t)).length;
+    const status = async (id: typeof pending) => (await t.run((ctx) => ctx.db.get(id)))?.status;
+    await expect(admin.mutation(api.loans.approve, { loanId: pending })).rejects.toThrow("Only the lender can do that");
+    await expect(admin.mutation(api.loans.decline, { loanId: pending })).rejects.toThrow("Only the lender can do that");
+    await expect(admin.mutation(api.loans.markReturned, { loanId: approved })).rejects.toThrow("Only the lender can do that");
+    await expect(admin.mutation(api.loans.cancel, { loanId: pending })).rejects.toThrow("Only the borrower can do that");
+    await expect(admin.mutation(api.loans.cancel, { loanId: approved })).rejects.toThrow("Only the borrower can do that");
+    expect(await status(pending)).toBe("pending");
+    expect(await status(approved)).toBe("approved");
+    expect((await events(t)).length).toBe(countBefore);
+  });
+
+  it("removing a tool with an approved loan keeps it visible, toolExists false, and still returnable", async () => {
+    const { alice, bob, toolId } = await setup();
+    const loanId = await alice.mutation(api.loans.request, { toolId, startDate: addDays(1), endDate: addDays(2) });
+    await bob.mutation(api.loans.approve, { loanId });
+    await bob.mutation(api.tools.remove, { toolId });
+    const inc = await bob.query(api.loans.incoming, {});
+    const mine = await alice.query(api.loans.mine, {});
+    for (const l of [inc[0], mine[0]]) {
+      expect(l._id).toBe(loanId);
+      expect(l.status).toBe("approved");
+      expect(l.toolName).toBe("Cordless Drill");
+      expect(l.toolExists).toBe(false);
+    }
+    await bob.mutation(api.loans.markReturned, { loanId });
+    expect((await bob.query(api.loans.incoming, {}))[0].status).toBe("returned");
+  });
+
+  it("removing a tool declines every pending request with one event per borrower", async () => {
+    const { t, alice, bob, toolId } = await setup();
+    const admin = await signIn(t, "admin"); // acts as a plain second borrower
+    const l1 = await alice.mutation(api.loans.request, { toolId, startDate: addDays(1), endDate: addDays(2) });
+    const l2 = await admin.mutation(api.loans.request, { toolId, startDate: addDays(3), endDate: addDays(4) });
+    await bob.mutation(api.tools.remove, { toolId });
+    const loans = await t.run((ctx) => Promise.all([ctx.db.get(l1), ctx.db.get(l2)]));
+    expect(loans.map((l) => l?.status)).toEqual(["declined", "declined"]);
+    const declined = (await events(t)).filter((e) => e.type === "loan.declined");
+    expect(declined).toHaveLength(2);
+    for (const l of loans) {
+      const match = declined.filter((e) => e.loanId === l!._id);
+      expect(match).toHaveLength(1);
+      expect(match[0].recipientUserId).toBe(l!.borrowerId);
+    }
+  });
 });
