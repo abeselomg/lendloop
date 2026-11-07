@@ -24,7 +24,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const crypto = require('crypto');\nconst item = $input.first();\nlet raw;\nif (item.binary?.data) {\n  raw = (await this.helpers.getBinaryDataBuffer(0, 'data')).toString('utf8');\n} else {\n  raw = JSON.stringify(item.json.body);\n}\nconst secret = $env.CONVEX_TO_N8N_SECRET;\nif (!secret) throw new Error('CONVEX_TO_N8N_SECRET is not configured');\nconst headers = item.json.headers || {};\nconst timestamp = String(headers['x-lendloop-timestamp'] || '');\nconst received = String(headers['x-lendloop-signature'] || '');\nif (!/^\\d+$/.test(timestamp) || !received.startsWith('v1=')) throw new Error('Invalid signature');\nif (Math.abs(Date.now() - Number(timestamp)) > 300000) throw new Error('Stale timestamp');\nconst expected = 'v1=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + raw).digest('hex');\nconst a = Buffer.from(expected);\nconst b = Buffer.from(received.toLowerCase());\nif (a.length !== b.length || !crypto.timingSafeEqual(a, b)) throw new Error('Invalid signature');\nreturn [{ json: JSON.parse(raw) }];"
+        "jsCode": "const crypto = require('crypto');\nconst item = $input.first();\nconst fail = (reason) => [{ json: { ok: false, reason } }];\nlet raw;\nif (item.binary?.data) {\n  raw = (await this.helpers.getBinaryDataBuffer(0, 'data')).toString('utf8');\n} else {\n  raw = JSON.stringify(item.json.body);\n}\nconst secret = $env.CONVEX_TO_N8N_SECRET;\nif (!secret) throw new Error('CONVEX_TO_N8N_SECRET is not configured');\nconst headers = item.json.headers || {};\nconst timestamp = String(headers['x-lendloop-timestamp'] || '');\nconst received = String(headers['x-lendloop-signature'] || '');\nif (!timestamp || !received) return fail('missing_headers');\nif (!/^\\d+$/.test(timestamp) || !received.startsWith('v1=')) return fail('invalid_signature');\nif (Math.abs(Date.now() - Number(timestamp)) > 300000) return fail('stale_timestamp');\nconst expected = 'v1=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + raw).digest('hex');\nconst a = Buffer.from(expected);\nconst b = Buffer.from(received.toLowerCase());\nif (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return fail('invalid_signature');\nlet payload;\ntry { payload = JSON.parse(raw); } catch (e) { return fail('invalid_signature'); }\nreturn [{ json: { ok: true, ...payload } }];"
       },
       "id": "11111111-0000-4000-8000-000000000002",
       "name": "Verify signature",
@@ -37,16 +37,33 @@
     },
     {
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ { \"accepted\": true } }}",
-        "options": {
-          "responseCode": 202
-        }
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a1b2c3d4-0000-4000-8000-000000000002",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
       "id": "11111111-0000-4000-8000-000000000003",
-      "name": "Respond 202",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
+      "name": "Signature valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
       "position": [
         480,
         0
@@ -54,14 +71,48 @@
     },
     {
       "parameters": {
-        "jsCode": "const p = $input.first().json;\nconst { toolName, startDate, endDate } = p.loan;\nconst range = startDate + ' to ' + endDate;\nconst who = p.counterpartFirstName;\nconst copy = {\n  'loan.requested': [\n    'New borrow request for ' + toolName,\n    who + ' wants to borrow your ' + toolName + ' from ' + range + '. Open ' + p.appUrl + ' to approve or decline.',\n  ],\n  'loan.approved': [\n    'Your request for ' + toolName + ' was approved',\n    who + ' approved your request for ' + range + '. Enjoy, and please return it by ' + endDate + '.',\n  ],\n  'loan.declined': [\n    'Your request for ' + toolName + ' was declined',\n    who + ' declined your request for ' + range + '.',\n  ],\n  'loan.returned': [\n    toolName + ' marked as returned',\n    who + ' marked ' + toolName + ' as returned. Thanks for lending responsibly.',\n  ],\n  'loan.cancelled': [\n    'Request for ' + toolName + ' was cancelled',\n    who + ' cancelled their request for ' + range + '.',\n  ],\n};\nconst entry = copy[p.type];\nif (!entry) throw new Error('Unknown event type: ' + p.type);\nreturn [{ json: { to: p.recipient.email, subject: entry[0], text: entry[1], eventId: p.eventId, loanId: p.loan.id } }];"
+        "respondWith": "json",
+        "responseBody": "={{ { \"accepted\": true } }}",
+        "options": {
+          "responseCode": 202
+        }
       },
       "id": "11111111-0000-4000-8000-000000000004",
+      "name": "Respond 202",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": $json.reason } }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "11111111-0000-4000-8000-000000000005",
+      "name": "Respond 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const p = $input.first().json;\nconst { toolName, startDate, endDate } = p.loan;\nconst range = startDate + ' to ' + endDate;\nconst who = p.counterpartFirstName;\nconst copy = {\n  'loan.requested': [\n    'New borrow request for ' + toolName,\n    who + ' wants to borrow your ' + toolName + ' from ' + range + '. Open ' + p.appUrl + ' to approve or decline.',\n  ],\n  'loan.approved': [\n    'Your request for ' + toolName + ' was approved',\n    who + ' approved your request for ' + range + '. Enjoy, and please return it by ' + endDate + '.',\n  ],\n  'loan.declined': [\n    'Your request for ' + toolName + ' was declined',\n    who + ' declined your request for ' + range + '.',\n  ],\n  'loan.returned': [\n    toolName + ' marked as returned',\n    who + ' marked ' + toolName + ' as returned. Thanks for lending responsibly.',\n  ],\n  'loan.cancelled': [\n    'Request for ' + toolName + ' was cancelled',\n    who + ' cancelled their request for ' + range + '.',\n  ],\n};\nconst entry = copy[p.type];\nif (!entry) throw new Error('Unknown event type: ' + p.type);\nreturn [{ json: { to: p.recipient.email, subject: entry[0], text: entry[1], eventId: p.eventId, loanId: p.loan.id } }];"
+      },
+      "id": "11111111-0000-4000-8000-000000000006",
       "name": "Build message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        720,
+        960,
         0
       ]
     },
@@ -89,12 +140,12 @@
         },
         "options": {}
       },
-      "id": "11111111-0000-4000-8000-000000000005",
+      "id": "11111111-0000-4000-8000-000000000007",
       "name": "Email enabled?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        960,
+        1200,
         0
       ]
     },
@@ -125,12 +176,12 @@
           }
         }
       },
-      "id": "11111111-0000-4000-8000-000000000006",
+      "id": "11111111-0000-4000-8000-000000000008",
       "name": "Send via Resend",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1200,
+        1440,
         0
       ],
       "credentials": {
@@ -146,14 +197,14 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const ctx = $('Build message').item.json;\nconst res = $input.item.json;\nconst code = Number(res.statusCode);\nif (code >= 200 && code < 300) {\n  return { json: { status: 'sent', channel: 'email', providerMessageId: res.body && res.body.id } };\n}\nif (code >= 500) {\n  throw new Error('Resend server error ' + code);\n}\nconst detail = (res.body && (res.body.message || res.body.name)) || 'request rejected';\nconst error = code + ' ' + detail;\nconsole.log('[LendLoop mock notification] Resend rejected the email, falling back to mock', JSON.stringify({ error, to: ctx.to, subject: ctx.subject, text: ctx.text }));\nreturn { json: { status: 'failed', channel: 'mock', error } };"
+        "jsCode": "const ctx = $('Build message').item.json;\nconst res = $input.item.json;\nconst code = Number(res.statusCode);\nif (code >= 200 && code < 300) {\n  return { json: { status: 'sent', channel: 'email', providerMessageId: res.body && res.body.id } };\n}\nconst severe = code >= 500 || code === 429;\nconst detail = (res.body && (res.body.message || res.body.name)) || 'request rejected';\nconst error = code + ' ' + detail;\nconsole.log('[LendLoop mock notification] Resend rejected the email, falling back to mock', JSON.stringify({ error, to: ctx.to, subject: ctx.subject, text: ctx.text }));\nreturn { json: severe ? { status: 'failed', channel: 'mock', error, severe: true } : { status: 'failed', channel: 'mock', error } };"
       },
-      "id": "11111111-0000-4000-8000-000000000007",
+      "id": "11111111-0000-4000-8000-000000000009",
       "name": "Classify result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1440,
+        1680,
         0
       ]
     },
@@ -162,12 +213,12 @@
         "mode": "runOnceForEachItem",
         "jsCode": "const ctx = $('Build message').item.json;\nconsole.log('[LendLoop mock notification]', JSON.stringify({ to: ctx.to, subject: ctx.subject, text: ctx.text }));\nreturn { json: { status: 'sent', channel: 'mock' } };"
       },
-      "id": "11111111-0000-4000-8000-000000000008",
+      "id": "11111111-0000-4000-8000-000000000010",
       "name": "Mock log",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1200,
+        1440,
         300
       ]
     },
@@ -176,12 +227,12 @@
         "mode": "runOnceForEachItem",
         "jsCode": "const crypto = require('crypto');\nconst secret = $env.N8N_TO_CONVEX_SECRET;\nif (!secret) throw new Error('N8N_TO_CONVEX_SECRET is not configured');\nconst sign = (body) => {\n  const timestamp = String(Date.now());\n  const signature = 'v1=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + body).digest('hex');\n  return { timestamp, signature };\n};\nconst ctx = $('Build message').item.json;\nconst result = $input.item.json;\nconst body = JSON.stringify({ eventId: ctx.eventId, channel: result.channel, status: result.status, providerMessageId: result.providerMessageId, error: result.error, sentAt: new Date().toISOString() });\nreturn { json: { body, ...sign(body), idempotencyKey: ctx.eventId } };"
       },
-      "id": "11111111-0000-4000-8000-000000000009",
+      "id": "11111111-0000-4000-8000-000000000011",
       "name": "Sign write-back",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1680,
+        1920,
         0
       ]
     },
@@ -212,17 +263,31 @@
         "body": "={{ $json.body }}",
         "options": {}
       },
-      "id": "11111111-0000-4000-8000-000000000010",
+      "id": "11111111-0000-4000-8000-000000000012",
       "name": "Record notification",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1920,
+        2160,
         0
       ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "if ($('Classify result').item.json.severe === true) {\n  throw new Error('Email provider failure: ' + $('Classify result').item.json.error);\n}\nreturn { json: $input.item.json };"
+      },
+      "id": "11111111-0000-4000-8000-000000000013",
+      "name": "Raise on severe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        0
+      ]
     }
   ],
   "connections": {
@@ -241,7 +306,25 @@
       "main": [
         [
           {
+            "node": "Signature valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Signature valid?": {
+      "main": [
+        [
+          {
             "node": "Respond 202",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 401",
             "type": "main",
             "index": 0
           }
@@ -326,6 +409,17 @@
         [
           {
             "node": "Record notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record notification": {
+      "main": [
+        [
+          {
+            "node": "Raise on severe",
             "type": "main",
             "index": 0
           }

@@ -51,7 +51,7 @@ try {
         "n8n",
         "sh",
         "-c",
-        "cat > /tmp/ll-creds.json && n8n import:credentials --input=/tmp/ll-creds.json; rm -f /tmp/ll-creds.json",
+        "cat > /tmp/ll-creds.json && n8n import:credentials --input=/tmp/ll-creds.json; rc=$?; rm -f /tmp/ll-creds.json; exit $rc",
       ],
       { input: JSON.stringify(creds), stdio: ["pipe", "inherit", "inherit"] },
     );

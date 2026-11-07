@@ -117,4 +117,24 @@ describe("n8n workflow exports", () => {
       }
     }
   });
+
+  it("IF wiring: email IF reaches Resend/Mock, both reach Sign write-back; invalid signature reaches Respond 401", () => {
+    const targets = (w: Workflow, name: string, out: number) => (w.connections[name]?.main[out] ?? []).map((t) => t.node);
+    const reach = (w: Workflow, from: string, seen = new Set<string>()): Set<string> => {
+      for (const outs of w.connections[from]?.main ?? []) for (const t of outs) if (!seen.has(t.node)) { seen.add(t.node); reach(w, t.node, seen); }
+      return seen;
+    };
+    for (const f of ["loan-notification", "overdue-reminders"]) {
+      const w = load(f);
+      expect(targets(w, "Email enabled?", 0)).toEqual(["Send via Resend"]);
+      expect(targets(w, "Email enabled?", 1)).toEqual(["Mock log"]);
+      expect(reach(w, "Send via Resend").has("Sign write-back")).toBe(true);
+      expect(reach(w, "Mock log").has("Sign write-back")).toBe(true);
+      expect(w.nodes.some((n) => n.name === "Raise on severe")).toBe(true);
+    }
+    const w = load("loan-notification");
+    expect(targets(w, "Signature valid?", 0)).toEqual(["Respond 202"]);
+    expect(targets(w, "Signature valid?", 1)).toEqual(["Respond 401"]);
+    expect(reach(w, "Respond 401").size).toBe(0);
+  });
 });

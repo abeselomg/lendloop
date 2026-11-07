@@ -14,7 +14,7 @@
           ]
         }
       },
-      "id": "11111111-0000-4000-8000-000000000011",
+      "id": "11111111-0000-4000-8000-000000000014",
       "name": "Daily 09:00",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
@@ -27,7 +27,7 @@
       "parameters": {
         "jsCode": "const crypto = require('crypto');\nconst secret = $env.N8N_TO_CONVEX_SECRET;\nif (!secret) throw new Error('N8N_TO_CONVEX_SECRET is not configured');\nconst sign = (body) => {\n  const timestamp = String(Date.now());\n  const signature = 'v1=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + body).digest('hex');\n  return { timestamp, signature };\n};\nconst { timestamp, signature } = sign('');\nreturn [{ json: { timestamp, signature } }];"
       },
-      "id": "11111111-0000-4000-8000-000000000012",
+      "id": "11111111-0000-4000-8000-000000000015",
       "name": "Sign request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -55,7 +55,7 @@
         },
         "options": {}
       },
-      "id": "11111111-0000-4000-8000-000000000013",
+      "id": "11111111-0000-4000-8000-000000000016",
       "name": "Fetch overdue loans",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -71,7 +71,7 @@
       "parameters": {
         "jsCode": "const data = $input.first().json;\nreturn (data.loans || []).map((l) => ({\n  json: {\n    ...l,\n    to: l.borrower.email,\n    firstName: l.borrower.firstName,\n    reminderKey: l.loanId + ':' + data.today,\n    subject: 'Reminder: ' + l.toolName + ' was due ' + l.endDate,\n    text: 'Hi ' + l.borrower.firstName + ', your loan of ' + l.toolName + ' from ' + l.lenderFirstName + ' was due on ' + l.endDate + ' (' + l.daysOverdue + ' day(s) ago). Please return it and ask them to mark it returned. — LendLoop',\n  },\n}));"
       },
-      "id": "11111111-0000-4000-8000-000000000014",
+      "id": "11111111-0000-4000-8000-000000000017",
       "name": "Fan out",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -104,7 +104,7 @@
         },
         "options": {}
       },
-      "id": "11111111-0000-4000-8000-000000000015",
+      "id": "11111111-0000-4000-8000-000000000018",
       "name": "Email enabled?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -140,7 +140,7 @@
           }
         }
       },
-      "id": "11111111-0000-4000-8000-000000000016",
+      "id": "11111111-0000-4000-8000-000000000019",
       "name": "Send via Resend",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -161,9 +161,9 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const ctx = $('Fan out').item.json;\nconst res = $input.item.json;\nconst code = Number(res.statusCode);\nif (code >= 200 && code < 300) {\n  return { json: { status: 'sent', channel: 'email', providerMessageId: res.body && res.body.id } };\n}\nif (code >= 500) {\n  throw new Error('Resend server error ' + code);\n}\nconst detail = (res.body && (res.body.message || res.body.name)) || 'request rejected';\nconst error = code + ' ' + detail;\nconsole.log('[LendLoop mock notification] Resend rejected the email, falling back to mock', JSON.stringify({ error, to: ctx.to, subject: ctx.subject, text: ctx.text }));\nreturn { json: { status: 'failed', channel: 'mock', error } };"
+        "jsCode": "const ctx = $('Fan out').item.json;\nconst res = $input.item.json;\nconst code = Number(res.statusCode);\nif (code >= 200 && code < 300) {\n  return { json: { status: 'sent', channel: 'email', providerMessageId: res.body && res.body.id } };\n}\nconst severe = code >= 500 || code === 429;\nconst detail = (res.body && (res.body.message || res.body.name)) || 'request rejected';\nconst error = code + ' ' + detail;\nconsole.log('[LendLoop mock notification] Resend rejected the email, falling back to mock', JSON.stringify({ error, to: ctx.to, subject: ctx.subject, text: ctx.text }));\nreturn { json: severe ? { status: 'failed', channel: 'mock', error, severe: true } : { status: 'failed', channel: 'mock', error } };"
       },
-      "id": "11111111-0000-4000-8000-000000000017",
+      "id": "11111111-0000-4000-8000-000000000020",
       "name": "Classify result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -177,7 +177,7 @@
         "mode": "runOnceForEachItem",
         "jsCode": "const ctx = $('Fan out').item.json;\nconsole.log('[LendLoop mock notification]', JSON.stringify({ to: ctx.to, subject: ctx.subject, text: ctx.text }));\nreturn { json: { status: 'sent', channel: 'mock' } };"
       },
-      "id": "11111111-0000-4000-8000-000000000018",
+      "id": "11111111-0000-4000-8000-000000000021",
       "name": "Mock log",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -191,7 +191,7 @@
         "mode": "runOnceForEachItem",
         "jsCode": "const crypto = require('crypto');\nconst secret = $env.N8N_TO_CONVEX_SECRET;\nif (!secret) throw new Error('N8N_TO_CONVEX_SECRET is not configured');\nconst sign = (body) => {\n  const timestamp = String(Date.now());\n  const signature = 'v1=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + body).digest('hex');\n  return { timestamp, signature };\n};\nconst ctx = $('Fan out').item.json;\nconst result = $input.item.json;\nconst body = JSON.stringify({ reminderKey: ctx.reminderKey, loanId: ctx.loanId, channel: result.channel, status: result.status, error: result.error, sentAt: new Date().toISOString() });\nreturn { json: { body, ...sign(body), idempotencyKey: ctx.reminderKey } };"
       },
-      "id": "11111111-0000-4000-8000-000000000019",
+      "id": "11111111-0000-4000-8000-000000000022",
       "name": "Sign write-back",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -227,7 +227,7 @@
         "body": "={{ $json.body }}",
         "options": {}
       },
-      "id": "11111111-0000-4000-8000-000000000020",
+      "id": "11111111-0000-4000-8000-000000000023",
       "name": "Record reminder",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -238,6 +238,20 @@
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "if ($('Classify result').item.json.severe === true) {\n  throw new Error('Email provider failure: ' + $('Classify result').item.json.error);\n}\nreturn { json: $input.item.json };"
+      },
+      "id": "11111111-0000-4000-8000-000000000024",
+      "name": "Raise on severe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        0
+      ]
     }
   ],
   "connections": {
@@ -341,6 +355,17 @@
         [
           {
             "node": "Record reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record reminder": {
+      "main": [
+        [
+          {
+            "node": "Raise on severe",
             "type": "main",
             "index": 0
           }
