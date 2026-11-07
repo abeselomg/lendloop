@@ -76,7 +76,8 @@ try {
 console.log(`
 Done. Next steps:
   1. Open http://localhost:5678 and check Workflows (3 imported, 2 active).
-  2. Set N8N_LOAN_EVENT_WEBHOOK_URL in Convex to http://host.docker.internal:5678/webhook/lendloop-loan-event
+  2. Set N8N_LOAN_EVENT_WEBHOOK_URL in Convex to http://localhost:5678/webhook/lendloop-loan-event
+     (Convex backend running on the host; use http://host.docker.internal:5678/... only if Convex itself runs inside Docker)
      (or your public URL + /webhook/lendloop-loan-event), plus CONVEX_TO_N8N_SECRET / N8N_TO_CONVEX_SECRET.
-  3. Watch runs under Executions; mock notifications show in: docker compose -f n8n/docker-compose.yml logs -f n8n
+  3. Watch runs under Executions; mock notifications are visible in the n8n Executions view (they may not appear in docker compose logs)
 `);

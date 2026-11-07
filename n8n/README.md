@@ -24,7 +24,9 @@ The container port is bound to 127.0.0.1 only; expose it through a tunnel/revers
 3. `npm run n8n:import` imports the workflows, imports the Resend credential (only if `RESEND_API_KEY` is set in `n8n/.env`; it is
    piped over stdin and never written to host disk), activates the two main workflows and restarts n8n.
 4. Point Convex at n8n: set `N8N_LOAN_EVENT_WEBHOOK_URL` to
-   `http://host.docker.internal:5678/webhook/lendloop-loan-event` (or your public URL; `http://localhost:5678/webhook/lendloop-loan-event` also works for a local Convex backend running on the host), and the two secrets.
+   `http://localhost:5678/webhook/lendloop-loan-event` for a Convex backend running on the host (use
+   `http://host.docker.internal:5678/webhook/lendloop-loan-event` only if Convex itself runs inside Docker, or your
+   public URL for Convex Cloud), and the two secrets.
 
 Set `LENDLOOP_EMAIL_ENABLED=false` (the default) to run fully offline: each "email" is logged as
 `[LendLoop mock notification] {...}` visible in the n8n Executions view (they may also appear in `docker compose -f n8n/docker-compose.yml logs -f n8n`, depending on task-runner log routing).

@@ -220,12 +220,16 @@ npm run n8n:import
 
 ### 5. Seed and run
 
+Keep `convex dev` from step 3 running in terminal 1; the seed command needs the local Convex backend, which only
+runs while `convex dev` is up.
+
 ```bash
-npm run seed      # creates the "LendLoop Demo" neighbor with 8 tools; safe to re-run
-npm run dev       # Next.js on :3000 and `convex dev` side by side
+npm run seed       # terminal 2: creates the "LendLoop Demo" neighbor with 8 tools; safe to re-run
+npm run dev:next   # terminal 3: Next.js on :3000
 ```
 
-(If `convex dev` from step 3 is still running, stop it first or use `npm run dev:next` for the web app only.)
+`npm run dev` (Next.js and `convex dev` together via concurrently) is the single-terminal alternative, only when
+`convex dev` is NOT already running.
 
 Open <http://localhost:3000>. The public page lists the seeded tools. Sign up with the email you put in
 `ADMIN_EMAILS` to get the admin role, then sign up a second account (another email, private window) to play the
@@ -366,7 +370,9 @@ status guards mean a late or duplicate run cannot move an event through the same
 
 **n8n side.** The webhook acks `202` right after signature verification, so Convex's retry only covers "n8n did
 not accept this" (a bad or stale signature also gets `401`, which Convex retries and eventually flags). HTTP
-Request nodes (Resend, write-backs) retry 3 times, 2 seconds apart. Outcomes are distinguished on purpose:
+Request nodes (Resend, write-backs) retry 3 times, 2 seconds apart. Outcomes are distinguished on purpose
+(these paths are covered by unit/contract tests but not yet exercised against a live n8n or Resend; see
+[Known limitations](#known-limitations-and-verification-status)):
 
 | Resend result | Recorded on the loan | Error workflow |
 | --- | --- | --- |
@@ -457,6 +463,8 @@ What I would change before running this for real:
 
 Source: [`docs/assignment.md`](docs/assignment.md).
 
+✅ = implemented and covered by unit/contract tests. Items involving a live n8n, Clerk sign-in, or Resend delivery have not yet been exercised end-to-end; see Known limitations.
+
 | Requirement | Where | Status |
 | --- | --- | --- |
 | Company name LendLoop, tagline | `src/app/page.tsx` | ✅ |
@@ -495,7 +503,7 @@ The n8n workflow JSON is tested structurally and its Code nodes are tested again
 - The browser flow with real Clerk keys has not been run end to end.
 - Sending through Resend has not been exercised.
 
-<!-- controller: update this list after the end-to-end pass -->
+Last verified: unit and contract tests only (see above). This list is a snapshot and will be updated after the end-to-end pass.
 
 Known limitations:
 
