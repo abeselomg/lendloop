@@ -12,6 +12,8 @@ import type * as lib_access from "../lib/access.js";
 import type * as lib_env from "../lib/env.js";
 import type * as lib_signature from "../lib/signature.js";
 import type * as lib_validation from "../lib/validation.js";
+import type * as lib_views from "../lib/views.js";
+import type * as tools from "../tools.js";
 import type * as users from "../users.js";
 
 import type {
@@ -25,6 +27,8 @@ declare const fullApi: ApiFromModules<{
   "lib/env": typeof lib_env;
   "lib/signature": typeof lib_signature;
   "lib/validation": typeof lib_validation;
+  "lib/views": typeof lib_views;
+  tools: typeof tools;
   users: typeof users;
 }>;
 
