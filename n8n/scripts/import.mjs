@@ -38,6 +38,7 @@ try {
     console.log("Importing Resend credential (piped via stdin, never written to host disk)...");
     const creds = [
       {
+        // Must match the httpHeaderAuth credential id referenced in both workflow JSONs.
         id: "LLResendApiKey01",
         name: "Resend API",
         type: "httpHeaderAuth",

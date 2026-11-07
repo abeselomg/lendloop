@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
-import { computeSignature } from "../convex/lib/signature";
+import { computeSignature, signedHeaders } from "../convex/lib/signature";
 
 const files = ["loan-notification", "overdue-reminders", "error-handler"] as const;
 const dir = join(__dirname, "workflows");
@@ -194,5 +194,63 @@ describe("severe flag is carried forward (no reaching back to unexecuted nodes)"
     expect(JSON.parse(signed.body)).toMatchObject({ status: "failed", error: "503 down" });
     executed["Sign write-back"] = signed;
     await expect(run(code(w, "Raise on severe"), { ok: true }, executed)).rejects.toThrow("Email provider failure: 503 down");
+  });
+});
+
+describe("Verify signature node contract (loan-notification)", () => {
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+  const req = createRequire(import.meta.url);
+  const SECRET = "convex-to-n8n-secret";
+  const code = load("loan-notification").nodes.find((n) => n.name === "Verify signature")!.parameters.jsCode;
+  const payload = { eventId: "evt1", type: "loan.approved", loanId: "l1", toolName: "Drill" };
+
+  async function verify(opts: {
+    body?: string;
+    headers?: Record<string, string>;
+    secret?: string;
+    binary?: boolean;
+    sentBody?: string;
+  }) {
+    const body = opts.body ?? JSON.stringify(payload);
+    const headers = opts.headers ?? (await signedHeaders(SECRET, body, { eventId: "evt1" }));
+    const delivered = opts.sentBody ?? body;
+    const item: Record<string, unknown> = { json: { headers, body: JSON.parse(delivered) } };
+    const helpers: Record<string, unknown> = {};
+    if (opts.binary !== false) {
+      item.binary = { data: { data: Buffer.from(delivered).toString("base64"), mimeType: "application/json" } };
+      helpers.getBinaryDataBuffer = async () => Buffer.from(delivered);
+    }
+    const fn = new AsyncFunction("$input", "$env", "require", "Buffer", code);
+    const $input = { first: () => item };
+    const out = await fn.call({ helpers }, $input, { CONVEX_TO_N8N_SECRET: opts.secret ?? SECRET }, req, Buffer);
+    return out[0].json as Record<string, unknown>;
+  }
+
+  it("accepts a correctly signed payload and spreads its fields", async () => {
+    expect(await verify({})).toEqual({ ok: true, ...payload });
+  });
+
+  it("falls back to re-serialising the parsed body when no binary is present", async () => {
+    expect(await verify({ binary: false })).toEqual({ ok: true, ...payload });
+  });
+
+  it("rejects a tampered body", async () => {
+    const headers = await signedHeaders(SECRET, JSON.stringify(payload), { eventId: "evt1" });
+    const r = await verify({ headers, sentBody: JSON.stringify({ ...payload, loanId: "other" }) });
+    expect(r).toEqual({ ok: false, reason: "invalid_signature" });
+  });
+
+  it("rejects a timestamp 6 minutes old", async () => {
+    const body = JSON.stringify(payload);
+    const headers = await signedHeaders(SECRET, body, { now: Date.now() - 6 * 60_000, eventId: "evt1" });
+    expect(await verify({ body, headers })).toEqual({ ok: false, reason: "stale_timestamp" });
+  });
+
+  it("rejects the wrong secret", async () => {
+    expect(await verify({ secret: "different-secret" })).toEqual({ ok: false, reason: "invalid_signature" });
+  });
+
+  it("rejects missing headers", async () => {
+    expect(await verify({ headers: {} })).toEqual({ ok: false, reason: "missing_headers" });
   });
 });

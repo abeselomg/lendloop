@@ -89,7 +89,7 @@ may set both to the same value locally; use different values anywhere real.
 
 | Direction | Endpoint | Purpose | Idempotency key |
 | --- | --- | --- | --- |
-| Convex to n8n | `POST {n8n}/webhook/lendloop-loan-event` | Deliver a loan event (`loan.requested`, `.approved`, `.declined`, `.returned`, `.cancelled`) | `eventId` (the `automationEvents` id) |
+| Convex to n8n | `POST {n8n}/webhook/lendloop-loan-event` | Deliver a loan event (`loan.requested`, `.approved`, `.declined`, `.returned`, `.cancelled`) | `eventId` (the `automationEvents` id); sent as `x-lendloop-event-id` and reused downstream, n8n itself keeps no state |
 | n8n to Convex | `GET {convex-site}/n8n/overdue-loans` | Approved loans with `endDate` before today (UTC) not yet reminded today | Source-side: reminded-today loans are excluded, so a rerun returns nothing new |
 | n8n to Convex | `POST /n8n/notifications` | Record that a loan-event notification was sent or failed | `notif:<eventId>` |
 | n8n to Convex | `POST /n8n/reminders` | Record an overdue reminder; bumps `reminderCount`/`lastReminderAt` only on the first `sent` | `reminder:<loanId>:<YYYY-MM-DD>` |
@@ -387,6 +387,10 @@ The error workflow posts to `/n8n/automation-errors`, so failed executions appea
 **Idempotency summary.** Event id (`notif:<eventId>`), loan plus UTC day (`reminder:<loanId>:<date>`), and execution
 id (`n8nerr:<executionId>`) are the keys. The reminder counter and `lastReminderAt` change only on the first `sent`
 insert; `GET /n8n/overdue-loans` excludes loans already reminded today, so a re-run of the schedule is a no-op.
+
+Convex-side rows are deduplicated by `notif:<eventId>` / `reminder:<loanId>:<date>`. Email sends are deduplicated by
+Resend's `Idempotency-Key` header (set to the same eventId / reminderKey, honored by Resend for 24 hours). The n8n
+workflow itself does not keep state, so in mock mode a redelivered event may log twice (harmless).
 
 Nothing fails silently: every failure path ends in an `automationLog` row.
 

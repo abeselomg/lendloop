@@ -39,6 +39,7 @@ webhook (401/5xx before the 202); once n8n has answered 202, delivery problems a
 
 - Executions: <http://localhost:5678> then each workflow, tab **Executions** (or sidebar Overview, Executions).
 - Delivery history and automation errors are also written back to Convex (notifications, reminders, automation errors).
+- Failures of the error-handler workflow itself (e.g. a secret mismatch returning 401 from `/n8n/automation-errors`) appear only in n8n Executions, since n8n does not run an error workflow for an error workflow.
 - Retries: Resend and write-back HTTP nodes retry 3 times, 2 s apart. Convex also retries a webhook call that does not get a 2xx.
 
 ## Trigger the reminder workflow manually
