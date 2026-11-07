@@ -42,3 +42,8 @@ next-env.d.ts
 .superpowers/
 .claude/
 .qodo/
+
+# n8n
+n8n/.env
+n8n/.tmp/
+n8n/data/
