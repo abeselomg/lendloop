@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { displayFirstName } from "./validation";
 
 export type AppUser = Doc<"users">;
 
@@ -16,8 +17,7 @@ export function isAdminEmail(email: string): boolean {
 }
 
 export function firstNameOf(user: { name?: string; email: string }): string {
-  const first = user.name?.trim().split(/\s+/)[0];
-  return first || user.email.split("@")[0].split("+")[0];
+  return displayFirstName(user);
 }
 
 export async function getUserOrNull(ctx: QueryCtx | MutationCtx): Promise<AppUser | null> {

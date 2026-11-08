@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   daysBetween,
+  displayFirstName,
   isIsoDate,
   rangesOverlap,
   todayUtc,
@@ -43,5 +44,19 @@ describe("validation", () => {
     expect(validateToolInput({ ...okTool, description: "x".repeat(300) })).toBeNull();
     expect(validateToolInput({ ...okTool, category: "bogus" })).toEqual(expect.any(String));
     expect(validateToolInput({ ...okTool, condition: "bogus" })).toEqual(expect.any(String));
+  });
+});
+
+describe("displayFirstName", () => {
+  it("uses the first word of the name when present", () => {
+    expect(displayFirstName({ name: "  Alice Smith ", email: "a+x@e.test" })).toBe("Alice");
+  });
+  it("falls back to the email local part without a +tag, never the full email", () => {
+    expect(displayFirstName({ email: "bob@example.com" })).toBe("bob");
+    expect(displayFirstName({ email: "bob+clerk_test@example.com" })).toBe("bob");
+    expect(displayFirstName({ name: "", email: "ada+x@e.test" })).toBe("ada");
+  });
+  it("keeps the local part when stripping the tag would leave nothing", () => {
+    expect(displayFirstName({ email: "+x@e.test" })).toBe("+x");
   });
 });

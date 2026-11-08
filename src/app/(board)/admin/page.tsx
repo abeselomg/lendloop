@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "@convex/_generated/api";
+import { displayFirstName } from "@convex/lib/validation";
 import type { Id } from "@convex/_generated/dataModel";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusChip } from "@/components/StatusChip";
@@ -231,7 +232,7 @@ function AdminConsole() {
               >
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-2 font-medium">
-                    {u.name || u.email.split("@")[0].split("+")[0]}
+                    {u.name || displayFirstName({ email: u.email })}
                     <span
                       className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                         u.role === "admin"

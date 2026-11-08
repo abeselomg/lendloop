@@ -10,7 +10,14 @@ export const EVENT_LABELS: Record<(typeof EVENT_TYPES)[number], string> = {
   "loan.returned": "Return",
   "loan.cancelled": "Cancellation",
 };
-export const LOG_KINDS = ["webhook_delivered","webhook_failed","notification_sent","notification_failed","reminder_sent","workflow_error"] as const;
+// First word of the name; otherwise the email's local part without a "+tag" (never the full email).
+export function displayFirstName(user: { name?: string; email: string }): string {
+  const first = user.name?.trim().split(/\s+/)[0];
+  if (first) return first;
+  const local = user.email.split("@")[0];
+  return local.split("+")[0] || local;
+}
+export const LOG_KINDS =["webhook_delivered","webhook_failed","notification_sent","notification_failed","reminder_sent","workflow_error"] as const;
 
 export type Category = (typeof CATEGORIES)[number];
 export type Condition = (typeof CONDITIONS)[number];

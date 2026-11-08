@@ -152,7 +152,9 @@ cp n8n/.env.example n8n/.env
 
 ### 2. Clerk
 
-1. Create a Clerk application (email sign-in is enough).
+1. Create a Clerk application (email sign-in is enough). Leave **Organizations** turned off (Clerk Dashboard,
+   Organizations): LendLoop uses personal accounts, and with organizations required every new user is stopped at a
+   "choose organization" step after sign-up.
 2. Copy the **Publishable key** and **Secret key** (API keys page) into `.env.local` as
    `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`.
 3. Let Convex trust Clerk tokens. Either enable the **Convex integration** (Clerk Dashboard, Integrations, Convex)
@@ -404,7 +406,7 @@ Nothing fails silently: every failure path ends in an `automationLog` row.
 ## Testing
 
 ```bash
-npm test          # 89 vitest tests
+npm test          # 93 vitest tests
 npm run lint
 npm run typecheck
 npm run build
@@ -474,7 +476,7 @@ What I would change before running this for real:
 
 Source: [`docs/assignment.md`](docs/assignment.md).
 
-✅ = implemented and covered by unit/contract tests. n8n and Convex were exercised end to end with simulated identities; Clerk sign-in and Resend delivery have not been; see Known limitations.
+✅ = implemented and covered by unit/contract tests. n8n and Convex were exercised end to end, and the browser flow was walked through with real Clerk sign-in; Resend delivery has not been; see Known limitations.
 
 | Requirement | Where | Status |
 | --- | --- | --- |
@@ -505,7 +507,7 @@ Source: [`docs/assignment.md`](docs/assignment.md).
 
 ### Known limitations and verification status
 
-Verified automatically: `npm test` (89 tests), `npm run lint`, `npm run typecheck` and `npm run build` all pass.
+Verified automatically: `npm test` (93 tests), `npm run lint`, `npm run typecheck` and `npm run build` all pass.
 The n8n workflow JSON is tested structurally and its Code nodes are tested against the signature contract.
 
 **Verified end to end (2026-11-08)** against docker-compose n8n 2.46.6 and the Convex local backend, with users simulated through `npx convex run ... --identity`:
@@ -515,7 +517,7 @@ The n8n workflow JSON is tested structurally and its Code nodes are tested again
 - Bad or stale signature gets 401 and starts no error workflow; a signed payload that breaks a node runs the error handler, which writes a `workflow_error` row (visible in `automation:listFailures`).
 - Overdue reminders: one `reminder_sent`, `reminderCount` 1, a second run sends nothing, and replaying a signed write-back returns `created:false`.
 - Malformed write-backs: invalid JSON, unknown loan and bad status get 400; unsigned gets 401.
-- Browser flow with real Clerk sign-in (Clerk dev instance, `+clerk_test` emails, Chrome driven by Playwright): public page, sign-in redirect for signed-out `/browse`, listing create/edit with validation, category filter, request with date validation, approve / decline / cancel / return, n8n activity entries appearing on the loans, admin console (trusted-lender toggle shows the badge on the board, listing removal, non-admin blocked), 390 px viewport without horizontal scroll, dark mode.
+- Browser flow with real Clerk sign-in (Clerk dev instance, `+clerk_test` emails, Chrome driven by Playwright): public page, sign-in redirect for signed-out `/browse`, listing create/edit with validation, category filter, request with date validation, approve / decline / cancel / return, n8n activity entries appearing on the loans, admin console (trusted-lender toggle shows the badge on the board, listing removal, non-admin blocked), 390 px viewport without horizontal scroll, dark mode. One account signed up through the UI; Clerk's bot protection blocks automated sign-up forms, so the other two test accounts were created with Clerk's Backend API and then signed in through the UI.
 
 **Not yet verified:**
 
