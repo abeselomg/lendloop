@@ -17,7 +17,7 @@ export function isAdminEmail(email: string): boolean {
 
 export function firstNameOf(user: { name?: string; email: string }): string {
   const first = user.name?.trim().split(/\s+/)[0];
-  return first || user.email.split("@")[0];
+  return first || user.email.split("@")[0].split("+")[0];
 }
 
 export async function getUserOrNull(ctx: QueryCtx | MutationCtx): Promise<AppUser | null> {
