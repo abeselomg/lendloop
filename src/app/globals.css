@@ -9,6 +9,9 @@
   --color-accent-ink: #ffffff;
   --color-accent-soft: #e4efe9;
   --color-line: #e6e1d8;
+  --color-peg: #e3d5bb;
+  --color-peg-hole: #b9a582;
+  --color-peg-edge: #d2c09f;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -21,6 +24,9 @@
     --color-accent-ink: #11201b;
     --color-accent-soft: #1f2e29;
     --color-line: #2e2b26;
+    --color-peg: #3a3125;
+    --color-peg-hole: #191511;
+    --color-peg-edge: #4a3f30;
   }
 }
 
@@ -33,6 +39,10 @@
   --color-accent-ink: var(--color-accent-ink);
   --color-accent-soft: var(--color-accent-soft);
   --color-line: var(--color-line);
+  --color-peg: var(--color-peg);
+  --color-peg-hole: var(--color-peg-hole);
+  --color-peg-edge: var(--color-peg-edge);
+  --font-display: var(--font-bricolage), var(--font-geist-sans), system-ui, sans-serif;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
