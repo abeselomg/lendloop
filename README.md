@@ -154,7 +154,10 @@ cp n8n/.env.example n8n/.env
 3. Let Convex trust Clerk tokens. Either enable the **Convex integration** (Clerk Dashboard, Integrations, Convex)
    or create a **JWT template** named exactly `convex` (Clerk Dashboard, JWT templates, New template, Convex
    preset). The front end requests the `convex` token and `convex/auth.config.ts` expects `applicationID: "convex"`.
-   The token must carry the user's `email`; the Convex preset does.
+   The token must carry the user's `email`. The Convex JWT-template preset does. With the native **Convex
+   integration** it does not by default: open Clerk Dashboard, Sessions, **Customize session token** and add
+   `{"email": "{{user.primary_email_address}}", "name": "{{user.full_name}}"}`. Without it, sign-in succeeds but
+   the app shows "Your account has no email on its Clerk token".
 4. Copy the **Issuer** (your Clerk Frontend API URL, for example `https://your-app-12.clerk.accounts.dev`). This is
    `CLERK_JWT_ISSUER_DOMAIN` below.
 
