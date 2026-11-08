@@ -209,14 +209,14 @@ mode.
 npm run n8n:up
 ```
 
-Open <http://localhost:5678> and **create the owner account** (the CLI import needs it). Then:
+The workflow import works on a fresh instance without an owner account (verified on n8n 2.46.6; credential import is untested without an owner). Create the owner at <http://localhost:5678> to use the editor. Then:
 
 ```bash
 npm run n8n:import
 ```
 
 `n8n:import` imports the three workflows with their stable ids, creates the "Resend API" credential if
-`RESEND_API_KEY` is set, activates the two main workflows and restarts n8n. Stop the stack with `npm run n8n:down`.
+`RESEND_API_KEY` is set, publishes the three workflows (the error handler must be published or n8n refuses to run it) and restarts n8n. Stop the stack with `npm run n8n:down`.
 
 ### 5. Seed and run
 
@@ -467,7 +467,7 @@ What I would change before running this for real:
 
 Source: [`docs/assignment.md`](docs/assignment.md).
 
-✅ = implemented and covered by unit/contract tests. Items involving a live n8n, Clerk sign-in, or Resend delivery have not yet been exercised end-to-end; see Known limitations.
+✅ = implemented and covered by unit/contract tests. n8n and Convex were exercised end to end with simulated identities; Clerk sign-in and Resend delivery have not been; see Known limitations.
 
 | Requirement | Where | Status |
 | --- | --- | --- |
@@ -501,18 +501,25 @@ Source: [`docs/assignment.md`](docs/assignment.md).
 Verified automatically: `npm test` (88 tests), `npm run lint`, `npm run typecheck` and `npm run build` all pass.
 The n8n workflow JSON is tested structurally and its Code nodes are tested against the signature contract.
 
-**Not yet verified** when this README was written:
+**Verified end to end (2026-11-08)** against docker-compose n8n 2.46.6 and the Convex local backend, with users simulated through `npx convex run ... --identity`:
 
-- The workflows have not been executed inside a real n8n instance.
-- The browser flow with real Clerk keys has not been run end to end.
-- Sending through Resend has not been exercised.
+- Happy path: request and approval create events that n8n delivers; the log shows `webhook_delivered` then `notification_sent` (channel mock).
+- n8n down: the event keeps `pending` with `attempts`, `lastError` and a ~30 s backoff, and is delivered after n8n returns. Just after a restart n8n answers `/healthz` before its webhook is registered, so the first retry can get HTTP 404 and the next one succeeds.
+- Bad or stale signature gets 401 and starts no error workflow; a signed payload that breaks a node runs the error handler, which writes a `workflow_error` row (visible in `automation:listFailures`).
+- Overdue reminders: one `reminder_sent`, `reminderCount` 1, a second run sends nothing, and replaying a signed write-back returns `created:false`.
+- Malformed write-backs: invalid JSON, unknown loan and bad status get 400; unsigned gets 401.
 
-Last verified: unit and contract tests only (see above). This list is a snapshot and will be updated after the end-to-end pass.
+**Not yet verified:**
+
+- The browser flow with real Clerk keys (sign-in) has not been run end to end.
+- Sending through Resend has not been exercised (mock mode only), nor the Resend credential import.
+
+Last verified: 2026-11-08, unit/contract tests plus the n8n 2.46.6 docker-compose and Convex local-backend run above (identities simulated; browser, Clerk sign-in and Resend still pending).
 
 Known limitations:
 
-- Mock notifications are written with `console.log` in the n8n Code nodes. Look for them in the n8n **Executions**
-  view; depending on how task runners route output they may not appear in `docker compose logs`.
+- Mock notifications are written with `console.log` in the n8n Code nodes. Verified on 2.46.6: they do **not** appear in `docker compose logs n8n` (task-runner output is not forwarded; only runtime errors are). Look in the n8n **Executions** view.
+- An error workflow must be published or n8n refuses to run it (`npm run n8n:import` publishes it).
 - Overlapping pending requests are allowed on purpose; there is no calendar-grade availability.
 - Seeded tools belong to a user who cannot sign in, so their requests stay pending.
 - Dates and the reminder schedule use UTC.
