@@ -57,6 +57,15 @@ describe("n8n workflow exports", () => {
     }
   });
 
+  it("the import script publishes all three workflows, including the error handler", () => {
+    // An inactive error handler never runs, so failures would go unrecorded (found in the e2e pass).
+    const script = readFileSync(join(__dirname, "scripts", "import.mjs"), "utf8");
+    for (const id of ["LLErrorHandler01", "LLLoanNotify0001", "LLOverdueRemind1"]) {
+      expect(script).toMatch(new RegExp(`"publish:workflow",\\s*"--id=${id}"`));
+    }
+    expect(script).not.toMatch(/update:workflow|--active/);
+  });
+
   it("every connection target names an existing node", () => {
     for (const f of files) {
       const w = load(f);

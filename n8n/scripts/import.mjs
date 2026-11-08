@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Imports the LendLoop workflows (and the Resend credential, if RESEND_API_KEY is set)
-// into the running n8n container, activates the main workflows, and restarts n8n.
+// into the running n8n container, publishes all three workflows (error handler first), and restarts n8n.
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -60,12 +60,12 @@ try {
     console.log("RESEND_API_KEY not set: skipping credential import (mock mode).");
   }
 
-  console.log("Activating workflows...");
+  console.log("Publishing all three workflows...");
   n8n("publish:workflow", "--id=LLErrorHandler01");
   n8n("publish:workflow", "--id=LLLoanNotify0001");
   n8n("publish:workflow", "--id=LLOverdueRemind1");
 
-  console.log("Restarting n8n so activation takes effect...");
+  console.log("Restarting n8n so publishing takes effect...");
   dc(["restart", "n8n"]);
 } catch (err) {
   console.error(

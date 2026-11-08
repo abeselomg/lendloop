@@ -66,7 +66,7 @@ Restart the service afterwards so activation takes effect.
 **UI import (assigns new ids).** Workflows, then Import from File, for each of the three files. Because ids change,
 the error-workflow link breaks: open **Loan notification** and **Overdue reminders**, Settings, **Error Workflow**,
 and select "LendLoop - Error handler" in each. Also re-select the credential in the "Send via Resend" nodes if the
-editor shows it missing. Then toggle both main workflows to **Active**.
+editor shows it missing. Then set all three workflows to **Active**, starting with "LendLoop - Error handler": an inactive error handler never runs, so failures would go unrecorded.
 
 ## 4. Create the Resend credential (skip in mock mode)
 

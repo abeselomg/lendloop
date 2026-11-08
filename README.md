@@ -209,7 +209,7 @@ mode.
 npm run n8n:up
 ```
 
-The workflow import works on a fresh instance without an owner account (verified on n8n 2.46.6; credential import is untested without an owner). Create the owner at <http://localhost:5678> to use the editor. Then:
+The workflow import works on a fresh instance without an owner account (verified on n8n 2.46.6; the Resend credential import itself has not been tested). Create the owner at <http://localhost:5678> to use the editor. Then:
 
 ```bash
 npm run n8n:import
@@ -397,7 +397,7 @@ Nothing fails silently: every failure path ends in an `automationLog` row.
 ## Testing
 
 ```bash
-npm test          # 88 vitest tests
+npm test          # 89 vitest tests
 npm run lint
 npm run typecheck
 npm run build
@@ -498,7 +498,7 @@ Source: [`docs/assignment.md`](docs/assignment.md).
 
 ### Known limitations and verification status
 
-Verified automatically: `npm test` (88 tests), `npm run lint`, `npm run typecheck` and `npm run build` all pass.
+Verified automatically: `npm test` (89 tests), `npm run lint`, `npm run typecheck` and `npm run build` all pass.
 The n8n workflow JSON is tested structurally and its Code nodes are tested against the signature contract.
 
 **Verified end to end (2026-11-08)** against docker-compose n8n 2.46.6 and the Convex local backend, with users simulated through `npx convex run ... --identity`:
