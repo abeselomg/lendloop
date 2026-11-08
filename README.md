@@ -11,7 +11,11 @@ This is a take-home for Fluence. The assignment text is in [`docs/assignment.md`
 doc this README is built from is [`docs/superpowers/specs/2026-11-07-lendloop-design.md`](docs/superpowers/specs/2026-11-07-lendloop-design.md).
 Where the two differ, this README describes what the code does.
 
-<!-- screenshots: add board, incoming requests with timeline, and admin panel here -->
+![Browse board with availability, category filter and Trusted lender badges](docs/screenshots/browse.png)
+
+![Incoming requests with the automation activity timeline](docs/screenshots/incoming.png)
+
+![Admin console: loans, listings, neighbors and automation failures](docs/screenshots/admin.png)
 
 ## Contents
 
@@ -511,13 +515,13 @@ The n8n workflow JSON is tested structurally and its Code nodes are tested again
 - Bad or stale signature gets 401 and starts no error workflow; a signed payload that breaks a node runs the error handler, which writes a `workflow_error` row (visible in `automation:listFailures`).
 - Overdue reminders: one `reminder_sent`, `reminderCount` 1, a second run sends nothing, and replaying a signed write-back returns `created:false`.
 - Malformed write-backs: invalid JSON, unknown loan and bad status get 400; unsigned gets 401.
+- Browser flow with real Clerk sign-in (Clerk dev instance, `+clerk_test` emails, Chrome driven by Playwright): public page, sign-in redirect for signed-out `/browse`, listing create/edit with validation, category filter, request with date validation, approve / decline / cancel / return, n8n activity entries appearing on the loans, admin console (trusted-lender toggle shows the badge on the board, listing removal, non-admin blocked), 390 px viewport without horizontal scroll, dark mode.
 
 **Not yet verified:**
 
-- The browser flow with real Clerk keys (sign-in) has not been run end to end.
 - Sending through Resend has not been exercised (mock mode only), nor the Resend credential import.
 
-Last verified: 2026-11-08, unit/contract tests plus the n8n 2.46.6 docker-compose and Convex local-backend run above (identities simulated; browser, Clerk sign-in and Resend still pending).
+Last verified: 2026-11-08, unit/contract tests, the n8n 2.46.6 docker-compose and Convex local-backend run, and the Clerk browser walkthrough above (Resend delivery and the Resend credential import still pending).
 
 Known limitations:
 
