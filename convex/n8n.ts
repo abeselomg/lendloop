@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { firstNameOf } from "./lib/access";
-import { daysBetween, todayUtc } from "./lib/validation";
+import { EVENT_LABELS, daysBetween, todayUtc } from "./lib/validation";
 
 const statusValidator = v.union(v.literal("sent"), v.literal("failed"));
 
@@ -68,7 +68,7 @@ export const recordNotification = internalMutation({
       loanId: event.loanId,
       kind: a.status === "sent" ? "notification_sent" : "notification_failed",
       source: "n8n",
-      message: `${a.channel === "email" ? "Email" : "Mock notification"} ${a.status === "sent" ? "sent" : "failed"}${a.error ? ": " + a.error : ""}`,
+      message: `${EVENT_LABELS[event.type]} ${a.channel === "email" ? "email" : "mock notification"} ${a.status === "sent" ? "sent" : "failed"}${a.error ? ": " + a.error : ""}`,
       idempotencyKey: key,
       createdAt: Date.now(),
       meta: compact({ channel: a.channel, providerMessageId: a.providerMessageId, sentAt: a.sentAt }),

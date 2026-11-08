@@ -3,6 +3,13 @@ export const CATEGORIES = ["power_tools","hand_tools","garden","kitchen","campin
 export const CONDITIONS = ["new","good","fair","worn"] as const;
 export const LOAN_STATUSES = ["pending","approved","declined","returned","cancelled"] as const;
 export const EVENT_TYPES = ["loan.requested","loan.approved","loan.declined","loan.returned","loan.cancelled"] as const;
+export const EVENT_LABELS: Record<(typeof EVENT_TYPES)[number], string> = {
+  "loan.requested": "Request",
+  "loan.approved": "Approval",
+  "loan.declined": "Decline",
+  "loan.returned": "Return",
+  "loan.cancelled": "Cancellation",
+};
 export const LOG_KINDS = ["webhook_delivered","webhook_failed","notification_sent","notification_failed","reminder_sent","workflow_error"] as const;
 
 export type Category = (typeof CATEGORIES)[number];

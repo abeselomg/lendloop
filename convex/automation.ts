@@ -5,7 +5,7 @@ import { internalAction, internalMutation, internalQuery, query, type MutationCt
 import { firstNameOf, requireAdmin } from "./lib/access";
 import { signedHeaders } from "./lib/signature";
 import type { ActivityEntry } from "./lib/views";
-import type { EventType, LoanStatus } from "./lib/validation";
+import { EVENT_LABELS, type EventType, type LoanStatus } from "./lib/validation";
 
 export const BACKOFF_MS = [30_000, 120_000, 600_000, 1_800_000];
 export const MAX_ATTEMPTS = 5;
@@ -99,7 +99,7 @@ export const markDelivered = internalMutation({
         loanId: event.loanId,
         kind: "webhook_delivered",
         source: "convex",
-        message: "Notification handed to n8n",
+        message: `${EVENT_LABELS[event.type]} notification handed to n8n`,
         idempotencyKey: key,
         createdAt: now,
       });

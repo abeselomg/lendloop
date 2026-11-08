@@ -109,7 +109,18 @@ describe("n8n http endpoints", () => {
     expect(await r2.json()).toEqual({ ok: true, created: false });
     const rows = (await logs(t)).filter((l) => l.kind === "notification_sent");
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ loanId, source: "n8n", message: "Email sent", idempotencyKey: `notif:${event._id}` });
+    expect(rows[0]).toMatchObject({ loanId, source: "n8n", message: "Request email sent", idempotencyKey: `notif:${event._id}` });
+  });
+
+  it("POST notifications labels the message by event type", async () => {
+    const { t, event } = await setup();
+    const other = await t.run(async (ctx) => {
+      return ctx.db.insert("automationEvents", { loanId: event.loanId, type: "loan.approved", recipientUserId: event.recipientUserId, status: "pending", attempts: 0, nextAttemptAt: 0, createdAt: Date.now() });
+    });
+    await postJson(t, "/n8n/notifications", { eventId: event._id, channel: "email", status: "sent", sentAt: "2026-01-01T00:00:00Z" });
+    await postJson(t, "/n8n/notifications", { eventId: other, channel: "mock", status: "sent", sentAt: "2026-01-01T00:00:00Z" });
+    const msgs = (await logs(t)).filter((l) => l.kind === "notification_sent").map((l) => l.message).sort();
+    expect(msgs).toEqual(["Approval mock notification sent", "Request email sent"]);
   });
 
   it("POST notifications sanitizes provider errors (emails stripped, capped at 200 chars)", async () => {
@@ -120,7 +131,7 @@ describe("n8n http endpoints", () => {
     const row = (await logs(t)).find((l) => l.kind === "notification_failed")!;
     expect(row.message).not.toContain("owner@example.com");
     expect(row.message).toContain("[email]");
-    expect(row.message.length).toBeLessThanOrEqual("Email failed: ".length + 200);
+    expect(row.message.length).toBeLessThanOrEqual("Request email failed: ".length + 200);
   });
 
   it("POST reminders bumps reminderCount once across two identical calls", async () => {

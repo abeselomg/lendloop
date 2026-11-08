@@ -76,6 +76,7 @@ describe("automation outbox", () => {
     const l = await logs(t);
     expect(l.filter((x) => x.kind === "webhook_delivered")).toHaveLength(1);
     expect(l[0].idempotencyKey).toBe(`delivered:${event._id}`);
+    expect(l[0].message).toBe("Request notification handed to n8n");
   });
 
   it("payload for loan.requested targets lender email", async () => {
