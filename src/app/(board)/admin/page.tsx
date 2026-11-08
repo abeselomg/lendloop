@@ -231,7 +231,7 @@ function AdminConsole() {
               >
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-2 font-medium">
-                    {u.name}
+                    {u.name || u.email.split("@")[0].split("+")[0]}
                     <span
                       className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                         u.role === "admin"
@@ -245,7 +245,7 @@ function AdminConsole() {
                   <p className="mt-0.5 break-all text-sm text-muted">{u.email}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <TrustToggle userId={u._id} trusted={u.trustedLender} name={u.name} />
+                  <TrustToggle userId={u._id} trusted={u.trustedLender} name={u.name || u.email} />
                 </div>
               </li>
             ))}
