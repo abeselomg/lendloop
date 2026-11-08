@@ -12,6 +12,9 @@
   --color-peg: #e3d5bb;
   --color-peg-hole: #b9a582;
   --color-peg-edge: #d2c09f;
+  --color-kraft: #e4cfa6;
+  --color-kraft-ink: #3b3122;
+  --color-kraft-line: #b99a66;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -27,6 +30,9 @@
     --color-peg: #3a3125;
     --color-peg-hole: #191511;
     --color-peg-edge: #4a3f30;
+    --color-kraft: #4d402d;
+    --color-kraft-ink: #f3e8d4;
+    --color-kraft-line: #8a7352;
   }
 }
 
@@ -42,6 +48,9 @@
   --color-peg: var(--color-peg);
   --color-peg-hole: var(--color-peg-hole);
   --color-peg-edge: var(--color-peg-edge);
+  --color-kraft: var(--color-kraft);
+  --color-kraft-ink: var(--color-kraft-ink);
+  --color-kraft-line: var(--color-kraft-line);
   --font-display: var(--font-bricolage), var(--font-geist-sans), system-ui, sans-serif;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -56,6 +65,20 @@ body {
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+/* The hero tag swings once on load and settles. */
+@keyframes tag-swing {
+  0% { transform: rotate(9deg); }
+  35% { transform: rotate(-5deg); }
+  60% { transform: rotate(2.5deg); }
+  80% { transform: rotate(-1.5deg); }
+  100% { transform: rotate(-2deg); }
+}
+
+.hero-tag-swing {
+  transform: rotate(-2deg);
+  animation: tag-swing 1.8s cubic-bezier(0.3, 0.7, 0.4, 1) 0.2s both;
 }
 
 @media (prefers-reduced-motion: reduce) {
