@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { CATEGORIES, type Category } from "@convex/lib/validation";
@@ -24,7 +24,7 @@ function Pegboard({ children, label }: { children: React.ReactNode; label: strin
 function Tag({ name, category, tilt }: { name: string; category: Category; tilt: string }) {
   return (
     <div
-      className={`relative flex h-full flex-col rounded-xl border border-line bg-surface px-4 pb-4 pt-8 shadow-[0_1px_0_rgb(0_0_0/0.04),0_6px_14px_-8px_rgb(0_0_0/0.25)] transition-transform duration-200 hover:rotate-0 ${tilt}`}
+      className={`relative flex h-full flex-col rounded-xl border border-line bg-surface px-4 pb-4 pt-8 shadow-[0_1px_0_rgb(0_0_0/0.04),0_6px_14px_-8px_rgb(0_0_0/0.25)] tag-sway ${tilt}`}
     >
       <span
         aria-hidden="true"
@@ -119,9 +119,10 @@ export function PublicToolList() {
         ))}
       </div>
       <Pegboard label="Tools available to borrow">
-        <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4">
+        {/* Keyed on the filter so the tags drop back onto the board each time it changes. */}
+        <ul key={filter} className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4">
           {shown.map((t, i) => (
-            <li key={t._id}>
+            <li key={t._id} className="tag-drop" style={{ "--d": `${Math.min(i, 11) * 55}ms` } as CSSProperties}>
               <Tag name={t.name} category={t.category} tilt={TILTS[i % TILTS.length]} />
             </li>
           ))}

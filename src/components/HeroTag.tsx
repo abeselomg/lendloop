@@ -39,7 +39,7 @@ export function HeroTag() {
               ))}
             </dl>
             <div className="mt-6 flex justify-end">
-              <span className="-rotate-[9deg] rounded-md border-[3px] border-double border-accent px-3 py-0.5 font-display text-xl font-bold tracking-tight text-accent opacity-90">
+              <span className="stamp-in -rotate-[9deg] rounded-md border-[3px] border-double border-accent px-3 py-0.5 font-display text-xl font-bold tracking-tight text-accent">
                 Approved
               </span>
             </div>

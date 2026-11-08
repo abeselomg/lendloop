@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { Bricolage_Grotesque } from "next/font/google";
 import { SignInButton, Show } from "@clerk/nextjs";
@@ -8,6 +9,9 @@ const display = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-bric
 
 const ctaClass =
   "inline-flex items-center rounded-full bg-accent px-6 py-3 text-base font-medium text-accent-ink shadow-[0_6px_16px_-8px_var(--color-accent)] transition-opacity hover:opacity-90";
+// Stagger for the .rise entrance animation.
+const delay = (ms: number) => ({ "--d": `${ms}ms` }) as CSSProperties;
+
 const navLinkClass = "rounded-full px-3 py-1.5 text-sm font-medium text-ink hover:text-accent";
 
 const STEPS = [
@@ -43,14 +47,16 @@ export default function Home() {
           />
           <div>
             <h1 className="font-display text-[clamp(2.5rem,6.2vw,4rem)] font-bold leading-[0.98] tracking-[-0.03em] text-ink">
-              <span className="block text-balance">Borrow what you need.</span>
-              <span className="block text-balance">Lend what you don&apos;t.</span>
+              <span className="rise block text-balance">Borrow what you need.</span>
+              <span className="rise block text-balance" style={delay(90)}>
+                Lend what you don&apos;t.
+              </span>
             </h1>
-            <p className="mt-6 max-w-[33rem] text-lg leading-relaxed text-muted">
+            <p className="rise mt-6 max-w-[33rem] text-lg leading-relaxed text-muted" style={delay(200)}>
               A lending board for your neighborhood. Borrow a ladder for the weekend from someone on your street, and
               put the drill you use twice a year to work.
             </p>
-            <div className="mt-8">
+            <div className="rise mt-8" style={delay(300)}>
               <Show when="signed-out">
                 <SignInButton mode="modal">
                   <button type="button" className={ctaClass}>
@@ -72,7 +78,7 @@ export default function Home() {
           <h2 id="how-it-works" className="sr-only">
             How borrowing works
           </h2>
-          <ol className="grid gap-6 sm:grid-cols-3">
+          <ol className="rise grid gap-6 sm:grid-cols-3" style={delay(420)}>
             {STEPS.map((s, i) => (
               <li key={s.title} className="flex gap-3.5">
                 <span
