@@ -11,6 +11,8 @@ This is a take-home for Fluence. The assignment text is in [`docs/assignment.md`
 doc this README is built from is [`docs/superpowers/specs/2026-11-07-lendloop-design.md`](docs/superpowers/specs/2026-11-07-lendloop-design.md).
 Where the two differ, this README describes what the code does.
 
+![Public page: the tagline, an example loan tag, and the tools free to borrow (name and category only)](docs/screenshots/public.png)
+
 ![Browse board with availability, category filter and Trusted lender badges](docs/screenshots/browse.png)
 
 ![Incoming requests with the automation activity timeline](docs/screenshots/incoming.png)
