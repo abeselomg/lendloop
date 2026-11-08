@@ -20,16 +20,16 @@ The container port is bound to 127.0.0.1 only; expose it through a tunnel/revers
 
 1. `cp n8n/.env.example n8n/.env` and fill the secrets (`openssl rand -hex 32` for each). Use the same
    `CONVEX_TO_N8N_SECRET` / `N8N_TO_CONVEX_SECRET` values in the Convex deployment env.
-2. `npm run n8n:up`, then open <http://localhost:5678> and **create the owner account**. The CLI import needs it.
+2. `npm run n8n:up`, then `npm run n8n:import`. The CLI import works on a fresh instance without an owner account (verified on 2.46.6); create the owner at <http://localhost:5678> afterwards to use the editor and Executions view.
 3. `npm run n8n:import` imports the workflows, imports the Resend credential (only if `RESEND_API_KEY` is set in `n8n/.env`; it is
-   piped over stdin and never written to host disk), activates the two main workflows and restarts n8n.
+   piped over stdin and never written to host disk), publishes the three workflows (the error handler must be published or n8n refuses to run it) and restarts n8n.
 4. Point Convex at n8n: set `N8N_LOAN_EVENT_WEBHOOK_URL` to
    `http://localhost:5678/webhook/lendloop-loan-event` for a Convex backend running on the host (use
    `http://host.docker.internal:5678/webhook/lendloop-loan-event` only if Convex itself runs inside Docker, or your
    public URL for Convex Cloud), and the two secrets.
 
 Set `LENDLOOP_EMAIL_ENABLED=false` (the default) to run fully offline: each "email" is logged as
-`[LendLoop mock notification] {...}` visible in the n8n Executions view (they may also appear in `docker compose -f n8n/docker-compose.yml logs -f n8n`, depending on task-runner log routing).
+`[LendLoop mock notification] {...}` visible in the n8n Executions view (verified on 2.46.6: they do not appear in `docker compose logs`).
 With `true`, emails go through Resend; a 4xx from Resend falls back to a mock log and is recorded as `failed`, a 5xx or 429
 is recorded the same way (`failed`, channel `mock`, so it shows on the loan timeline). After that row is written, the
 "Raise on severe" node throws so the error workflow also reports it. Convex retries only when n8n fails to accept the

@@ -56,8 +56,9 @@ paste them into `/tmp/workflows/`, or build a small image that copies them in). 
 
 ```bash
 n8n import:workflow --separate --input=/tmp/workflows
-n8n update:workflow --id=LLLoanNotify0001 --active=true
-n8n update:workflow --id=LLOverdueRemind1 --active=true
+n8n publish:workflow --id=LLErrorHandler01
+n8n publish:workflow --id=LLLoanNotify0001
+n8n publish:workflow --id=LLOverdueRemind1
 ```
 
 Restart the service afterwards so activation takes effect.

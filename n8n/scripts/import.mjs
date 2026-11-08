@@ -61,14 +61,15 @@ try {
   }
 
   console.log("Activating workflows...");
-  n8n("update:workflow", "--id=LLLoanNotify0001", "--active=true");
-  n8n("update:workflow", "--id=LLOverdueRemind1", "--active=true");
+  n8n("publish:workflow", "--id=LLErrorHandler01");
+  n8n("publish:workflow", "--id=LLLoanNotify0001");
+  n8n("publish:workflow", "--id=LLOverdueRemind1");
 
   console.log("Restarting n8n so activation takes effect...");
   dc(["restart", "n8n"]);
 } catch (err) {
   console.error(
-    "\nImport failed. Is the stack running (`npm run n8n:up`) and the owner account created at http://localhost:5678?",
+    "\nImport failed. Is the stack running (`npm run n8n:up`)?",
   );
   console.error(err instanceof Error ? err.message : err);
   process.exit(1);
@@ -76,9 +77,9 @@ try {
 
 console.log(`
 Done. Next steps:
-  1. Open http://localhost:5678 and check Workflows (3 imported, 2 active).
+  1. Open http://localhost:5678 and check Workflows (3 imported, 3 published; the error handler must be published or n8n will not run it).
   2. Set N8N_LOAN_EVENT_WEBHOOK_URL in Convex to http://localhost:5678/webhook/lendloop-loan-event
      (Convex backend running on the host; use http://host.docker.internal:5678/... only if Convex itself runs inside Docker)
      (or your public URL + /webhook/lendloop-loan-event), plus CONVEX_TO_N8N_SECRET / N8N_TO_CONVEX_SECRET.
-  3. Watch runs under Executions; mock notifications are visible in the n8n Executions view (they may not appear in docker compose logs)
+  3. Watch runs under Executions; mock notifications are visible in the n8n Executions view (they do not appear in docker compose logs on 2.46.6)
 `);
