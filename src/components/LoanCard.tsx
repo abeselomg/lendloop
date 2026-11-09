@@ -4,6 +4,7 @@ import { daysBetween, todayUtc } from "@convex/lib/validation";
 import { formatDay } from "@/lib/labels";
 import { StatusChip } from "@/components/StatusChip";
 import { ActivityList } from "@/components/ActivityList";
+import { TrustedMark } from "@/components/TrustedMark";
 
 export function LoanCard({ loan, actions }: { loan: LoanView; actions: ReactNode }) {
   const overdue = loan.status === "approved" && loan.endDate < todayUtc();
@@ -19,15 +20,11 @@ export function LoanCard({ loan, actions }: { loan: LoanView; actions: ReactNode
               <span className="ml-2 text-sm font-normal text-muted">(listing removed)</span>
             ) : null}
           </h3>
-          <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
+          <p className="mt-1 flex flex-wrap items-center gap-1 text-sm text-muted">
             {asBorrower ? (
               <>
                 From {loan.lender.firstName}
-                {loan.lender.trustedLender ? (
-                  <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent">
-                    Trusted lender
-                  </span>
-                ) : null}
+                {loan.lender.trustedLender ? <TrustedMark /> : null}
               </>
             ) : (
               <>For {loan.borrower.firstName}</>

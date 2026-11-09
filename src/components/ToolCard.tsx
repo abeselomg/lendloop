@@ -5,6 +5,7 @@ import type { ToolView } from "@convex/lib/views";
 import { CONDITION_LABELS } from "@/lib/labels";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { useCategories } from "@/lib/hooks/useCategories";
+import { TrustedMark } from "@/components/TrustedMark";
 
 // One filled element per card (the action); everything else is text, so the eye goes name → details → action.
 export function ToolCard({
@@ -74,21 +75,13 @@ export function ToolCard({
 
 function Availability({ onLoan }: { onLoan: boolean }) {
   return (
-    <span className="mt-0.5 flex shrink-0 items-center gap-1.5 text-xs font-medium text-muted">
-      <span aria-hidden="true" className={`size-2 rounded-full ${onLoan ? "bg-stone-400" : "bg-accent"}`} />
+    <span
+      className={`mt-0.5 flex shrink-0 items-center gap-1.5 text-xs font-medium ${
+        onLoan ? "text-amber-700 dark:text-amber-300" : "text-accent"
+      }`}
+    >
+      <span aria-hidden="true" className={`size-2 rounded-full ${onLoan ? "bg-amber-500" : "bg-accent"}`} />
       {onLoan ? "On loan" : "Available"}
-    </span>
-  );
-}
-
-function TrustedMark() {
-  return (
-    <span className="ml-2 inline-flex items-center gap-1 align-middle text-xs font-medium text-accent">
-      <svg viewBox="0 0 16 16" aria-hidden="true" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M8 1.5 2.5 3.8v3.7c0 3.2 2.3 5.8 5.5 7 3.2-1.2 5.5-3.8 5.5-7V3.8z" />
-        <path d="m5.6 8 1.7 1.7 3.2-3.4" />
-      </svg>
-      Trusted lender
     </span>
   );
 }
