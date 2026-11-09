@@ -159,6 +159,22 @@ body {
   text-decoration: line-through;
 }
 
+/* Start picked, end not yet: the start is filled, and the range up to the hovered/focused day is previewed. */
+.lendloop-rdp .rdp-picked-start .rdp-day_button {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+
+.lendloop-rdp .rdp-preview:not(.rdp-picked-start) {
+  background: var(--color-accent-soft);
+}
+
+.lendloop-rdp .rdp-preview-end:not(.rdp-picked-start) .rdp-day_button {
+  border: 2px dashed var(--color-accent);
+  font-weight: 600;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;

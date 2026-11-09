@@ -1,5 +1,5 @@
 // Pure date helpers for the borrow-request calendar (no React), so they can be unit tested.
-import { rangesOverlap } from "../../convex/lib/validation";
+import { daysBetween, rangesOverlap } from "../../convex/lib/validation";
 
 export type DateSelection = { start: string | null; end: string | null };
 
@@ -30,4 +30,19 @@ export function nextSelection(
   if (clicked < current.start) return fresh;
   if (booked.some((b) => rangesOverlap(current.start!, clicked, b.startDate, b.endDate))) return fresh;
   return { start: current.start, end: clicked };
+}
+
+/**
+ * While only the start is picked, the day the pointer (or keyboard focus) is on would become the return day if it
+ * is a valid end: not before the start, within the loan limit, and without a booked day in between.
+ */
+export function previewEnd(
+  current: DateSelection,
+  hovered: string | null,
+  booked: { startDate: string; endDate: string }[],
+  maxDays: number,
+): string | null {
+  if (!current.start || current.end || !hovered || hovered < current.start) return null;
+  if (daysBetween(current.start, hovered) > maxDays) return null;
+  return nextSelection(current, hovered, booked).end === hovered ? hovered : null;
 }
