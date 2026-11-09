@@ -48,7 +48,7 @@ Where the two differ, this README describes what the code does.
 8. [Testing](#testing)
 9. [Deployment](#deployment)
 10. [Production note](#production-note)
-11. [Known limitations](#known-limitations-and-verification-status)
+11. [Verification and known limitations](#verification-and-known-limitations)
 
 ## Stack
 
@@ -501,7 +501,7 @@ accept the event (including a `401`). HTTP Request nodes (Resend and the write-b
 
 The error workflow posts to `/n8n/automation-errors`, so failed runs also show in the admin console as
 `workflow_error`. The mock path has run against the live n8n; the Resend rows have not (see
-[Known limitations](#known-limitations-and-verification-status)).
+[Verification and known limitations](#verification-and-known-limitations)).
 
 **Retries never duplicate.** Every write-back goes through the `automationLog` idempotency ledger, keyed as in the
 [contract table](#convex-to-n8n-contract): a replay returns `created: false` and changes nothing, and the reminder
@@ -575,32 +575,23 @@ The live demo is fine for a review, not for real neighbors. What I would change,
 6. **CI/CD.** There is no pipeline yet. Run `npm test`, `lint`, `typecheck` and `build` on every push, deploy Convex
    and both Railway services from that pipeline, and check that `n8n/workflows/` matches what n8n is running.
 
-## Known limitations and verification status
+## Verification and known limitations
 
-Verified automatically: `npm test` (169 tests), `npm run lint`, `npm run typecheck` and `npm run build` all pass.
-The n8n workflow JSON is tested structurally and its Code nodes are tested against the signature contract.
+**Automated:** `npm test` (169 tests), `npm run lint`, `npm run typecheck` and `npm run build` all pass.
 
-**Verified end to end (2026-11-08)** against docker-compose n8n 2.46.6 and the Convex local backend, with users simulated through `npx convex run ... --identity`:
+**Checked by hand (2026-11-08 and 09):**
 
-- Happy path: request and approval create events that n8n delivers; the log shows `webhook_delivered` then `notification_sent` (channel mock).
-- n8n down: the event keeps `pending` with `attempts`, `lastError` and a ~30 s backoff, and is delivered after n8n returns. Just after a restart n8n answers `/healthz` before its webhook is registered, so the first retry can get HTTP 404 and the next one succeeds.
-- Bad or stale signature gets 401 and starts no error workflow; a signed payload that breaks a node runs the error handler, which writes a `workflow_error` row (visible in the admin console's **Automation failures** tab, `automation/queries:workflowErrors`).
-- Overdue reminders: one `reminder_sent`, `reminderCount` 1, a second run sends nothing, and replaying a signed write-back returns `created:false`.
-- Malformed write-backs: invalid JSON, unknown loan and bad status get 400; unsigned gets 401.
-- Browser flow with real Clerk sign-in (Clerk dev instance, `+clerk_test` emails, Chrome driven by Playwright): public page, sign-in redirect for signed-out `/browse`, listing create/edit with validation, category filter, request with date validation, approve / decline / cancel / return, n8n activity entries appearing on the loans, admin console (trusted-lender toggle shows the badge on the board, listing removal, non-admin blocked), 390 px viewport without horizontal scroll, dark mode. One account signed up through the UI; Clerk's bot protection blocks automated sign-up forms, so the other two test accounts were created with Clerk's Backend API and then signed in through the UI.
+- Locally, with n8n in Docker and the local Convex backend: each loan change sends a notification through n8n and
+  back; while n8n is down events wait and are delivered once it returns; a bad signature gets `401`; a broken run
+  shows up under **Automation failures**; overdue reminders go out once per day.
+- In a browser with real Clerk sign-in: listing, requesting, approving, declining, cancelling and returning, the
+  admin console, a phone-width screen and dark mode.
+- On the live demo: a full borrow loop delivered every notification through n8n on Railway, and Users tab changes
+  sync with Clerk in both directions.
 
-**Not yet verified:**
+**Known limitations:**
 
-- Sending through Resend has not been exercised (mock mode only). The credential import itself runs on every Railway boot (with a placeholder value), so only a real key and a real send are untested.
-
-Last verified: 2026-11-09. Unit/contract tests, the n8n 2.46.6 docker-compose and Convex local-backend run, and the Clerk browser walkthrough above. The live demo was checked the same way: a borrow loop on Convex Cloud delivered all 8 notifications through n8n on Railway and back (`webhook_delivered` and `notification_sent` for each), and a real Clerk sign-in on the Railway app showed the loans with their activity. On 2026-11-09 the n8n executions were also checked to be readable (not redacted), with the mock notification in the Mock log output. Also on 2026-11-09, the Users tab was checked on the live demo: an unsigned POST to `/clerk/webhook` gets 401, a name change in the Clerk dashboard reached the Users tab through the webhook, and a name edit in the Users tab updated Clerk. Resend delivery is still pending.
-
-Known limitations:
-
-- Mock notifications do **not** appear in `docker compose logs n8n` or Railway logs (task-runner `console.log` output is not forwarded; verified on 2.46.6). To read one, open the run in n8n **Executions** and click the **Mock log** node: its output has `mockNotification` with `to`, `subject` and `text`. Only status fields are written back to Convex.
-- An error workflow must be published or n8n refuses to run it (`npm run n8n:import` publishes it).
-- Overlapping pending requests are allowed on purpose; only approved loans block days on the calendar.
-- Seeded tools belong to a user who cannot sign in, so their requests stay pending.
-- Dates and the reminder schedule use UTC.
-- The public page lists only tools not currently on loan; the signed-in board shows all with a status, and any
-  tool you don't own can be requested for days that are still free.
+- No real email has been sent through Resend; the demo runs in mock mode. Without a verified domain, Resend would
+  only deliver to the account owner.
+- The seeded demo tools belong to an account nobody can sign in as, so requests for them stay pending.
+- Dates and the 09:00 reminder use UTC.
