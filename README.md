@@ -7,9 +7,7 @@ them for a date range, and the lender approves, declines and marks returns. n8n 
 right person whenever a request is created or changes status, and nags borrowers daily about overdue loans. Every
 automation step is written back to the loan so it shows up in the app ("Reminder sent 2 days ago").
 
-This is a take-home for Fluence. The assignment text is in [`docs/assignment.md`](docs/assignment.md); the design
-doc this README is built from is [`docs/superpowers/specs/2026-11-07-lendloop-design.md`](docs/superpowers/specs/2026-11-07-lendloop-design.md).
-Where the two differ, this README describes what the code does.
+This is a take-home for Fluence. The assignment text is in [`docs/assignment.md`](docs/assignment.md).
 
 ![Public page: the tagline, an example loan tag, and the tools free to borrow (name and category only)](docs/screenshots/public.png)
 
@@ -55,9 +53,9 @@ Where the two differ, this README describes what the code does.
 | Layer | Choice |
 | --- | --- |
 | Frontend | Next.js 16.4 (App Router, TypeScript, Tailwind 4), React 19 |
-| Auth | Clerk (`@clerk/nextjs` 7.9.25). Middleware is `src/proxy.ts`; signed-in/out UI uses `<Show when="signed-in">` |
+| Auth | Clerk (`@clerk/nextjs` 7.9.25) |
 | Data and backend | Convex 1.49 (queries, mutations, scheduled actions, HTTP actions) |
-| Automation | n8n 2.46.6 (`docker.n8n.io/n8nio/n8n:2.46.6`), three workflows in `n8n/workflows/` |
+| Automation | n8n 2.46.6, three workflows in `n8n/workflows/` |
 | Email | Resend REST API, called from n8n with an n8n credential; offline mock mode by default |
 | Tests | vitest 5 + convex-test |
 
@@ -82,10 +80,9 @@ There are no Next.js API routes. The browser talks to Convex directly with the C
 decision is made in Convex functions (`convex/lib/access.ts`), not in the UI. The UI hides only what the backend
 already forbids.
 
-The Convex backend has one folder per domain (`users/`, `tools/`, `loans/`, `automation/`, `n8n/`). `queries.ts` and
-`mutations.ts` hold the public API (`api.<domain>.queries.*`, `api.<domain>.mutations.*`); `internal.ts` and `actions.ts`
-hold server-only functions (`internal.<domain>.internal.*`, `internal.<domain>.actions.*`). Plain helpers that are not
-Convex functions live in `automation/outbox.ts` and `lib/`. Each domain test sits next to its code.
+The Convex backend has one folder per domain (`users/`, `tools/`, `categories/`, `loans/`, `automation/`, `n8n/`).
+In each, `queries.ts`, `mutations.ts` and `actions.ts` are callable from the app, and `internal.ts` holds functions
+only the server can call. Shared helpers live in `lib/`, HTTP routes in `http.ts`, and tests sit next to their code.
 
 ### Data model (`convex/schema.ts`)
 
@@ -98,7 +95,8 @@ Convex functions live in `automation/outbox.ts` and `lib/`. Each domain test sit
 | `automationEvents` | Outbox of loan events to deliver to n8n (`pending`, `delivered`, `failed`, attempts, next attempt) |
 | `automationLog` | Per-loan timeline shown in the UI, and the idempotency ledger for n8n write-backs (unique by convention on `idempotencyKey`) |
 
-Availability is derived, not stored: a tool is "on loan" iff an `approved` loan exists for it, so it cannot drift.
+Availability is derived, not stored: a tool is "on loan" exactly when an `approved` loan exists for it, so it cannot
+drift.
 Removing a tool hard-deletes it; loans keep `toolName`, and pending requests on it are declined with a normal
 `loan.declined` event so the borrower hears about it.
 
@@ -143,6 +141,11 @@ with `CLERK_WEBHOOK_SECRET` in constant time and rejects timestamps more than 5 
 Other event types get `200` and are ignored. The route answers `503` without the secret, `401` on a missing, stale or
 bad signature, and `400` on a body that is not a JSON object.
 
+Clerk stays the source of truth for names and emails. A name edited in the admin Users tab is saved to Clerk first
+(`users/actions:updateName`) and then copied locally. Besides the webhook, the copy is refreshed at every sign-in
+and by **Sync with Clerk** in the Users tab (`users/actions:syncFromClerk`), which is how a local setup stays current
+since Clerk cannot reach a local backend.
+
 ### What happens when a request is approved
 
 1. The lender clicks Approve. The `approve` mutation in `convex/loans/mutations.ts` checks the caller is the loan's lender, the loan is
@@ -171,7 +174,7 @@ More detail, including manual runs and secret rotation, is in [`n8n/README.md`](
 
 ## Local setup
 
-Target: about 15 minutes. You need a Clerk account; Convex and Resend accounts are optional.
+You need a Clerk account; Convex and Resend accounts are optional.
 
 ### Prerequisites
 
@@ -331,9 +334,6 @@ Real values are never committed: `.env*` is gitignored except the `*.example` fi
 | `RESEND_API_KEY` | no | Import-time only. `npm run n8n:import` stores it as the encrypted n8n credential "Resend API". It is not passed to the container |
 | `N8N_PUBLIC_URL` | no | Public URL of n8n, used as `WEBHOOK_URL`. Default `http://localhost:5678` |
 
-The compose file also sets `N8N_RUNNERS_ENABLED=true`, `NODE_FUNCTION_ALLOW_BUILTIN=crypto` (the Code nodes use
-Node `crypto` for HMAC) and `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` (Code nodes read the secrets from `$env`).
-
 ### Turning on real email (optional)
 
 1. Create a Resend API key. Without a verified domain Resend only delivers to the account owner's address, so
@@ -357,22 +357,15 @@ A 4xx from Resend (for example an unverified recipient) does not break anything:
 | `/admin` | admin | All loans, all listings (remove), users (search, Trusted Lender, admin role, edit name, sync with Clerk), categories, automation failures |
 | `/sign-in`, `/sign-up` | public | Clerk components |
 
-**Roles.** `user` can create, edit and delete only their own listings and act only on requests involving their
-own tools or their own borrowing. `admin` can view every loan, remove any listing, flag a lender as Trusted
-Lender, manage categories, grant or remove the admin role and correct a user's name. Admins deliberately
-**cannot** approve, decline or return other people's loans (least privilege).
+**Roles.** A `user` can create, edit and delete only their own listings and act only on requests for their own
+tools or their own borrowing. An `admin` can also see every loan, remove any listing, mark Trusted lenders, manage
+categories, make or remove admins and correct names, but cannot approve, decline or return other people's loans.
 
-**Admin bootstrap.** The first admin comes from config: put the email in the `ADMIN_EMAILS` Convex env var (comma
-separated); on every `ensure` (`convex/users/mutations.ts`) call, which the app makes after sign-in, a matching email
-gets `role: "admin"`. Removing an email from the list does not demote an existing admin. After that, an admin can
-promote others in the **Users** tab (`users/mutations:setRole`, checked server-side). Removing the role is refused
-for yourself, for `ADMIN_EMAILS` admins (they would be re-promoted on next sign-in) and for the last remaining admin;
-the demo account cannot be promoted, and deleted accounts cannot be changed at all.
-
-**User records follow Clerk.** Clerk is the source of truth for names and emails. Name edits in the Users tab are
-written to Clerk first (`users/actions:updateName`) and then mirrored locally; the webhook, sign-in (`ensure`) and
-**Sync with Clerk** (`users/actions:syncFromClerk`, pages through every Clerk user) keep the mirror current. Clerk's
-error bodies are never passed back to the browser, only the status code.
+The first admin comes from the `ADMIN_EMAILS` Convex env var (comma separated): a matching email gets the admin role
+at sign-in. After that, admins can make others admin in the **Users** tab (`users/mutations:setRole`). Removing the
+role is refused for yourself, for `ADMIN_EMAILS` admins (they would get it back at their next sign-in) and for the
+last admin; the demo account cannot be made admin, and deleted accounts cannot be changed. Taking an email out of
+`ADMIN_EMAILS` does not remove that person's admin role.
 
 **Rules worth knowing.** Dates are ISO `YYYY-MM-DD`, the start must not be in the past (UTC) or after the end, and
 there is no limit on how long a loan can be (the borrower asks for the days they need; the lender decides). You cannot borrow your own tool. A request for days that overlap an already
@@ -388,9 +381,8 @@ To see the full approve-and-return flow, list a tool with one account and reques
 
 ### Watching the automation in n8n
 
-Sign in at <http://localhost:5678> with the owner account you created during setup, or at the live demo's n8n
-(<https://n8n-production-1175.up.railway.app>) with the login sent with the submission. The screenshots below are
-from the live demo.
+Sign in at <http://localhost:5678> with the owner account you created during setup, or use the live demo's n8n (see
+[Live demo](#live-demo)). The screenshots below are from the live demo.
 
 - **Every run:** sidebar **Overview**, tab **Executions** (or open a workflow and use its own **Executions** tab).
   Green runs succeeded, red ones failed. Each borrow request, approval, decline, return or cancellation in the app
@@ -417,14 +409,12 @@ from the live demo.
 
 Container logs (`docker compose logs n8n`, Railway logs) only show startup and errors, not the notifications.
 
-On the live demo the n8n editor is private: its owner login is held by the repo owner and is not in the repo. Ask for
-access if you want to look around; otherwise the loan cards show every notification's outcome.
+### Lists and search
 
-### Lists, search and the admin console
-
-- Every list is paginated with Convex cursor pagination (`usePaginatedQuery`, wrapped by `src/lib/hooks/usePagedQuery.ts` into Previous / Next pages): 12 cards on Browse, My listings and the public board, 6 loans on My requests and Incoming, 10 rows in admin tables. The public board drops tools that are on loan within each page, so a page can be shorter than 12.
-- Browse searches tool names through a Convex search index (`tools/queries:list` with `search`), combined with the category filter; results come back in relevance order.
-- Incoming is split into tabs (Needs your decision, Active loans, History). The admin console has tabs for Loans (status filter), Listings (search, remove with confirmation), Users (search by name or email through a Convex search index, role filter, Trusted lender, make or remove admin, edit name, Sync with Clerk), Categories (add, rename, change icon, reorder, archive or restore, delete when unused) and Automation failures. The active tab is kept in the URL (`?tab=`), so it survives a refresh and can be linked.
+- Long lists are split into pages with Previous / Next. Browse searches tool names (a Convex search index) together
+  with the category filter.
+- Incoming has tabs for Needs your decision, Active loans and History. The admin console has tabs for Loans,
+  Listings, Users, Categories and Automation failures; the open tab is kept in the URL, so it survives a refresh.
 
 ## Security and data-minimization decisions
 
@@ -462,10 +452,9 @@ stored encrypted inside n8n. Only the `.env.example` files are committed, with n
 the workflows read their secrets from the environment, so anyone who can log in to the n8n editor can read them.
 That is why the live n8n login is not published.
 
-**Admins have limited powers.** The first admin comes from the `ADMIN_EMAILS` setting; after that, admins can make
-other people admins. An admin cannot remove their own admin role, and the last admin cannot be removed. Admins can
-see all loans, remove listings, mark Trusted lenders, manage categories and roles, and fix names, but they cannot
-approve, decline or return other people's loans.
+**Admins have limited powers.** They cannot approve, decline or return other people's loans, and nobody can remove
+the last admin or their own admin role, so the app cannot lock itself out. The full list is under
+[Roles](#using-the-app).
 
 **The Clerk webhook only accepts messages from Clerk.** `/clerk/webhook` checks Clerk's signature and rejects
 anything older than 5 minutes (`convex/lib/svix.ts`). The Clerk secret key stays in the Convex environment, and if a
@@ -549,7 +538,7 @@ The live demo runs like this:
 | Next.js app | Railway service built from this repo (Railpack) | `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`; Next binds Railway's `PORT` |
 | n8n | Railway service built from [`n8n/railway/Dockerfile`](n8n/railway/Dockerfile) (`RAILWAY_DOCKERFILE_PATH`) | Pinned n8n 2.46.6 with the workflows baked in; imports and publishes them on boot. Step by step in [`n8n/railway/README.md`](n8n/railway/README.md) |
 | n8n database | Railway Postgres | Referenced with `${{Postgres.PGHOST}}` etc. |
-| Backend | Convex Cloud production deployment (`npx convex deploy`) | Env vars as listed above, with the Railway n8n webhook URL in `N8N_LOAN_EVENT_WEBHOOK_URL`, the Railway app URL in `APP_URL`, and `CLERK_SECRET_KEY` plus `CLERK_WEBHOOK_SECRET` for the Users tab. After a deploy that adds `searchText`, run `npx convex run --prod users/internal:backfillSearchText` once |
+| Backend | Convex Cloud production deployment (`npx convex deploy`) | Env vars as listed above, with the Railway n8n webhook URL in `N8N_LOAN_EVENT_WEBHOOK_URL`, the Railway app URL in `APP_URL`, and `CLERK_SECRET_KEY` plus `CLERK_WEBHOOK_SECRET` for the Users tab |
 | Auth | Clerk development instance | Fine for a demo; real use needs a Clerk production instance with its own keys. A webhook endpoint posts `user.created`, `user.updated` and `user.deleted` to `https://<prod>.convex.site/clerk/webhook` |
 
 Production uses its own signing secrets and n8n encryption key, different from the local ones. Nothing secret is in
@@ -577,7 +566,7 @@ The live demo is fine for a review, not for real neighbors. What I would change,
 
 ## Verification and known limitations
 
-**Automated:** `npm test` (169 tests), `npm run lint`, `npm run typecheck` and `npm run build` all pass.
+The automated checks are in [Testing](#testing).
 
 **Checked by hand (2026-11-08 and 09):**
 
