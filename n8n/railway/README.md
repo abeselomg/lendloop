@@ -8,7 +8,12 @@ You need: a Railway account, a deployed Convex production deployment (`npx conve
 
 ## 1. Create the services
 
-1. New project, then **Deploy from Docker image**: `docker.n8n.io/n8nio/n8n:2.46.6` (keep it pinned).
+1. New project, then add a service **from this GitHub repo** and set the variable
+   `RAILWAY_DOCKERFILE_PATH=n8n/railway/Dockerfile`. That image is the pinned `docker.n8n.io/n8nio/n8n:2.46.6`
+   with the three workflow files baked in; on every boot [`start.sh`](start.sh) imports them (stable ids, so no
+   duplicates) and publishes them before n8n starts. Set `LENDLOOP_IMPORT_ON_BOOT=false` if you edit the workflows
+   in the editor and want those edits to survive a restart. (Plain `docker.n8n.io/n8nio/n8n:2.46.6` also works;
+   then import by hand as in step 3.)
 2. Add the **PostgreSQL** plugin to the same project.
 3. On the n8n service, open Settings, Networking and **Generate Domain**. Note it as `<railway-domain>`.
 4. Optional: add a Volume mounted at `/home/node/.n8n` (n8n keeps a config file there; the encryption key is
@@ -31,7 +36,6 @@ Use Railway variable references (`${{Postgres.PGHOST}}`) for the database.
 | `N8N_PROTOCOL` | `https` |
 | `N8N_PORT` | `5678` |
 | `WEBHOOK_URL` | `https://<railway-domain>/` |
-| `N8N_RUNNERS_ENABLED` | `true` |
 | `NODE_FUNCTION_ALLOW_BUILTIN` | `crypto` |
 | `N8N_BLOCK_ENV_ACCESS_IN_NODE` | `false` |
 | `N8N_DIAGNOSTICS_ENABLED` | `false` |
@@ -46,9 +50,9 @@ Do **not** set `N8N_SECURE_COOKIE=false`; Railway terminates HTTPS. Use differen
 Deploy the service and wait for it to be healthy, then open `https://<railway-domain>` and **create the owner
 account** (use a strong password; the editor is internet-facing).
 
-## 3. Import the workflows
+## 3. Import the workflows (only if you used the plain n8n image)
 
-The workflow files live in `n8n/workflows/` with stable ids (`LLLoanNotify0001`, `LLOverdueRemind1`,
+With `n8n/railway/Dockerfile` this step is automatic. Otherwise: the workflow files live in `n8n/workflows/` with stable ids (`LLLoanNotify0001`, `LLOverdueRemind1`,
 `LLErrorHandler01`) and the main two reference the error handler by id. Preferred path keeps the ids:
 
 **Railway shell / CLI (keeps ids).** Get the three JSON files onto the container (for example `railway ssh`, then
