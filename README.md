@@ -233,14 +233,17 @@ mode.
 npm run n8n:up
 ```
 
-The workflow import works on a fresh instance without an owner account (verified on n8n 2.46.6; the Resend credential import itself has not been tested). Create the owner at <http://localhost:5678> to use the editor. Then:
+Open <http://localhost:5678>. On the first visit n8n asks you to **create the owner account**: use any email and
+password you like; it only exists in your local n8n (stored in the Docker volume) and is what you sign in with from
+then on. Then:
 
 ```bash
 npm run n8n:import
 ```
 
-`n8n:import` imports the three workflows with their stable ids, creates the "Resend API" credential if
-`RESEND_API_KEY` is set, publishes the three workflows (the error handler must be published or n8n refuses to run it) and restarts n8n. Stop the stack with `npm run n8n:down`.
+`n8n:import` imports the three workflows with their stable ids, creates the "Resend API" credential (from
+`RESEND_API_KEY`, or a placeholder in mock mode: n8n 2.x hides the data of runs whose credential is missing),
+publishes the three workflows (the error handler must be published or n8n refuses to run it) and restarts n8n. Stop the stack with `npm run n8n:down`.
 
 ### 5. Seed and run
 
@@ -340,6 +343,32 @@ started.
 **Demo seed caveat.** `npm run seed` creates a synthetic neighbor "LendLoop Demo" (`clerkId: "seed:demo"`) with
 eight tools so the board is not empty. Nobody can sign in as it, so requests to those tools stay pending forever.
 To see the full approve-and-return flow, list a tool with one account and request it from another.
+
+### Watching the automation in n8n
+
+Sign in at <http://localhost:5678> with the owner account you created during setup.
+
+- **Every run:** sidebar **Overview**, tab **Executions** (or open a workflow and use its own **Executions** tab).
+  Green runs succeeded, red ones failed. Each borrow request, approval, decline, return or cancellation in the app
+  produces one "LendLoop – Loan notification" run within a second or two.
+- **Read a mock notification:** click a run, then the **Mock log** node. Its output has
+  `mockNotification` with `to`, `subject` and `text`, for example
+  `{ "to": "alice+clerk_test@example.com", "subject": "Request for Camping stove was cancelled", "text": "Bob cancelled their request for 2026-11-27 to 2026-11-28." }`.
+  With real email on, look at **Send via Resend** and the Resend dashboard instead.
+- **Follow one run end to end:** **Verify signature** (was the call from Convex genuine), **Build message** (who is
+  told what), **Mock log** or **Send via Resend**, **Sign write-back** and **Record notification** (Convex's reply;
+  `created: false` means a retry was recognised as a duplicate).
+- **Reminders:** open "LendLoop – Overdue reminders" and click **Execute workflow** to run it now instead of waiting for
+  09:00 UTC. With no overdue loans it ends early; re-running on the same day sends nothing new.
+- **Failures:** failed runs are red here, the "LendLoop – Error handler" workflow has its own executions, and the same
+  failures show in the app's admin console under **Automation failures**.
+- **In the app:** each loan card shows the outcome in plain words ("Bob was notified about your request"); the admin
+  console's **Last activity** column shows the technical step.
+
+Container logs (`docker compose logs n8n`, Railway logs) only show startup and errors, not the notifications.
+
+On the live demo the n8n editor is private: its owner login is held by the repo owner and is not in the repo. Ask for
+access if you want to look around; otherwise the loan cards show every notification's outcome.
 
 ## Security and data-minimization decisions
 
@@ -544,9 +573,9 @@ The n8n workflow JSON is tested structurally and its Code nodes are tested again
 
 **Not yet verified:**
 
-- Sending through Resend has not been exercised (mock mode only), nor the Resend credential import.
+- Sending through Resend has not been exercised (mock mode only). The credential import itself runs on every Railway boot (with a placeholder value), so only a real key and a real send are untested.
 
-Last verified: 2026-11-09. Unit/contract tests, the n8n 2.46.6 docker-compose and Convex local-backend run, and the Clerk browser walkthrough above. The live demo was checked the same way: a borrow loop on Convex Cloud delivered all 8 notifications through n8n on Railway and back (`webhook_delivered` and `notification_sent` for each), and a real Clerk sign-in on the Railway app showed the loans with their activity. Resend delivery and the Resend credential import are still pending.
+Last verified: 2026-11-09. Unit/contract tests, the n8n 2.46.6 docker-compose and Convex local-backend run, and the Clerk browser walkthrough above. The live demo was checked the same way: a borrow loop on Convex Cloud delivered all 8 notifications through n8n on Railway and back (`webhook_delivered` and `notification_sent` for each), and a real Clerk sign-in on the Railway app showed the loans with their activity. On 2026-11-09 the n8n executions were also checked to be readable (not redacted), with the mock notification in the Mock log output. Resend delivery is still pending.
 
 Known limitations:
 

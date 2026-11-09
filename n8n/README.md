@@ -39,7 +39,7 @@ webhook (401/5xx before the 202); once n8n has answered 202, delivery problems a
 
 ## Where to look
 
-- Executions: <http://localhost:5678> then each workflow, tab **Executions** (or sidebar Overview, Executions).
+- Executions: <http://localhost:5678> then each workflow, tab **Executions** (or sidebar Overview, Executions). Click a run, then the **Mock log** node, to read the notification. A step-by-step guide is in the main README, [Watching the automation in n8n](../README.md#watching-the-automation-in-n8n).
 - Delivery history and automation errors are also written back to Convex (notifications, reminders, automation errors).
 - Failures of the error-handler workflow itself (e.g. a secret mismatch returning 401 from `/n8n/automation-errors`) appear only in n8n Executions, since n8n does not run an error workflow for an error workflow.
 - Right after a restart, `/healthz` answers before webhooks are registered, so the first Convex retry may get a 404; the next scheduled retry succeeds.
