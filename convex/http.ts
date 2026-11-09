@@ -2,7 +2,9 @@ import { httpRouter } from "convex/server";
 import { ConvexError } from "convex/values";
 import { internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
+import { parseClerkUser } from "./lib/clerk";
 import { verifySignature } from "./lib/signature";
+import { verifySvix } from "./lib/svix";
 import { todayUtc } from "./lib/validation";
 
 const http = httpRouter();
@@ -159,6 +161,34 @@ http.route({
         loanId: opt(o.loanId),
       }),
     );
+  }),
+});
+
+http.route({
+  path: "/clerk/webhook",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const secret = process.env.CLERK_WEBHOOK_SECRET;
+    if (!secret) return json({ error: "CLERK_WEBHOOK_SECRET not configured" }, 503);
+    const body = await request.text();
+    const result = await verifySvix(secret, request.headers, body);
+    if (!result.ok) return json({ error: result.reason }, 401);
+    let event: unknown;
+    try {
+      event = JSON.parse(body);
+    } catch {
+      return json({ error: "Invalid JSON" }, 400);
+    }
+    if (typeof event !== "object" || event === null) return json({ error: "Body must be a JSON object" }, 400);
+    const { type, data } = event as { type?: unknown; data?: unknown };
+    if (type === "user.created" || type === "user.updated") {
+      const user = parseClerkUser(data);
+      if (user) await ctx.runMutation(internal.users.internal.upsertFromClerk, { users: [user] });
+    } else if (type === "user.deleted") {
+      const id = (data as { id?: unknown } | null)?.id;
+      if (typeof id === "string" && id) await ctx.runMutation(internal.users.internal.markDeleted, { clerkId: id });
+    }
+    return json({ ok: true });
   }),
 });
 

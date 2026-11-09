@@ -11,7 +11,7 @@ import { CategoriesTab } from "@/components/admin/CategoriesTab";
 import { FailuresTab } from "@/components/admin/FailuresTab";
 import { ListingsTab } from "@/components/admin/ListingsTab";
 import { LoansTab } from "@/components/admin/LoansTab";
-import { NeighborsTab } from "@/components/admin/NeighborsTab";
+import { UsersTab } from "@/components/admin/UsersTab";
 
 export default function AdminPage() {
   const me = useQuery(api.users.queries.me);
@@ -37,7 +37,7 @@ function AdminTabs() {
   const tabs = [
     { id: "loans", label: "Loans" },
     { id: "listings", label: "Listings" },
-    { id: "neighbors", label: "Neighbors" },
+    { id: "users", label: "Users" },
     { id: "categories", label: "Categories", count: categories.isLoading ? undefined : categories.all.length },
     { id: "failures", label: "Automation failures" },
   ];
@@ -45,8 +45,8 @@ function AdminTabs() {
     <Tabs tabs={tabs} value={tab} onChange={setTab} label="Admin sections">
       {tab === "listings" ? (
         <ListingsTab />
-      ) : tab === "neighbors" ? (
-        <NeighborsTab />
+      ) : tab === "users" ? (
+        <UsersTab />
       ) : tab === "categories" ? (
         <CategoriesTab />
       ) : tab === "failures" ? (

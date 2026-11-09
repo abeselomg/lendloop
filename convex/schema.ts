@@ -23,10 +23,14 @@ export default defineSchema({
     role: v.union(v.literal("admin"), v.literal("user")),
     trustedLender: v.boolean(),
     createdAt: v.number(),
+    deletedAt: v.optional(v.number()),
+    searchText: v.optional(v.string()),
   })
     .index("by_clerkId", ["clerkId"])
     .index("by_email", ["email"])
-    .index("by_name", ["name"]),
+    .index("by_name", ["name"])
+    .index("by_role_name", ["role", "name"])
+    .searchIndex("search_text", { searchField: "searchText", filterFields: ["role"] }),
 
   tools: defineTable({
     ownerId: v.id("users"),

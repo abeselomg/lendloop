@@ -27,6 +27,11 @@ import type * as n8n_internal from "../n8n/internal.js";
 import type * as seed from "../seed.js";
 import type * as tools_mutations from "../tools/mutations.js";
 import type * as tools_queries from "../tools/queries.js";
+import type * as lib_clerk from "../lib/clerk.js";
+import type * as lib_svix from "../lib/svix.js";
+import type * as lib_users from "../lib/users.js";
+import type * as users_actions from "../users/actions.js";
+import type * as users_internal from "../users/internal.js";
 import type * as users_mutations from "../users/mutations.js";
 import type * as users_queries from "../users/queries.js";
 
@@ -56,6 +61,11 @@ declare const fullApi: ApiFromModules<{
   seed: typeof seed;
   "tools/mutations": typeof tools_mutations;
   "tools/queries": typeof tools_queries;
+  "lib/clerk": typeof lib_clerk;
+  "lib/svix": typeof lib_svix;
+  "lib/users": typeof lib_users;
+  "users/actions": typeof users_actions;
+  "users/internal": typeof users_internal;
   "users/mutations": typeof users_mutations;
   "users/queries": typeof users_queries;
 }>;

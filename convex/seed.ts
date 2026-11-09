@@ -29,6 +29,7 @@ export const demo = internalMutation({
         role: "user",
         trustedLender: true,
         createdAt: Date.now(),
+        searchText: "lendloop demo demo@lendloop.local",
       }));
     const existing = await ctx.db
       .query("tools")

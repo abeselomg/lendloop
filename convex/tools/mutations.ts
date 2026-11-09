@@ -3,7 +3,7 @@ import { mutation, type QueryCtx } from "../_generated/server";
 import { conditionValidator } from "../schema";
 import { requireUser } from "../lib/access";
 import { validateToolInput } from "../lib/validation";
-import { declinePendingLoansForTool } from "../automation/outbox";
+import { removeTool } from "../lib/users";
 
 const toolInput = {
   name: v.string(),
@@ -65,8 +65,7 @@ export const remove = mutation({
     const user = await requireUser(ctx);
     const tool = await ctx.db.get(toolId);
     if (!tool || (tool.ownerId !== user._id && user.role !== "admin")) throw new ConvexError("Not your listing");
-    await declinePendingLoansForTool(ctx, toolId);
-    await ctx.db.delete(toolId);
+    await removeTool(ctx, toolId);
     return null;
   },
 });
