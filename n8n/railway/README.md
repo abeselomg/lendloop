@@ -72,13 +72,19 @@ the error-workflow link breaks: open **Loan notification** and **Overdue reminde
 and select "LendLoop - Error handler" in each. Also re-select the credential in the "Send via Resend" nodes if the
 editor shows it missing. Then set all three workflows to **Active**, starting with "LendLoop - Error handler": an inactive error handler never runs, so failures would go unrecorded.
 
-## 4. Create the Resend credential (skip in mock mode)
+## 4. The Resend credential
 
-1. Credentials, Create, **Header Auth**.
-2. Name it exactly `Resend API`. Header name `Authorization`, value `Bearer <RESEND_API_KEY>`.
-3. Open the "Send via Resend" node in both main workflows and make sure it uses this credential.
-4. Set `LENDLOOP_EMAIL_ENABLED=true` and redeploy. Without a verified Resend domain, mail only reaches the Resend
-   account owner; other recipients get a 4xx, which is recorded as `notification_failed` and mock-logged.
+With `n8n/railway/Dockerfile` this is automatic: on every boot `start.sh` creates the "Resend API" credential (id
+`LLResendApiKey01`) from the `RESEND_API_KEY` variable, or with a placeholder value when it is unset. It has to exist
+even in mock mode: n8n 2.x redacts the data of every run of a workflow that references a missing credential, so the
+mock notifications would be hidden in Executions.
+
+To send real email: add `RESEND_API_KEY` to the n8n service variables, set `LENDLOOP_EMAIL_ENABLED=true`, and
+redeploy. Without a verified Resend domain, mail only reaches the Resend account owner; other recipients get a 4xx,
+which is recorded as `notification_failed` and mock-logged.
+
+With the plain n8n image, create it by hand: Credentials, Create, **Header Auth**, named exactly `Resend API`, header
+`Authorization`, value `Bearer <RESEND_API_KEY>`, and select it in the "Send via Resend" node of both main workflows.
 
 ## 5. Point Convex at n8n
 

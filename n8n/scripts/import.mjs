@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Imports the LendLoop workflows (and the Resend credential, if RESEND_API_KEY is set)
+// Imports the LendLoop workflows and the Resend credential (a placeholder if RESEND_API_KEY is unset)
 // into the running n8n container, publishes all three workflows (error handler first), and restarts n8n.
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -34,31 +34,34 @@ try {
   console.log("Importing workflows...");
   n8n("import:workflow", "--separate", "--input=/home/node/workflows");
 
-  if (env.RESEND_API_KEY) {
-    console.log("Importing Resend credential (piped via stdin, never written to host disk)...");
-    const creds = [
-      {
-        // Must match the httpHeaderAuth credential id referenced in both workflow JSONs.
-        id: "LLResendApiKey01",
-        name: "Resend API",
-        type: "httpHeaderAuth",
-        data: { name: "Authorization", value: `Bearer ${env.RESEND_API_KEY}` },
-      },
-    ];
-    dc(
-      [
-        "exec",
-        "-T",
-        "n8n",
-        "sh",
-        "-c",
-        "cat > /tmp/ll-creds.json && n8n import:credentials --input=/tmp/ll-creds.json; rc=$?; rm -f /tmp/ll-creds.json; exit $rc",
-      ],
-      { input: JSON.stringify(creds), stdio: ["pipe", "inherit", "inherit"] },
-    );
-  } else {
-    console.log("RESEND_API_KEY not set: skipping credential import (mock mode).");
-  }
+  // Always import the Resend credential. In mock mode it holds a placeholder that is never used, but it must exist:
+  // n8n 2.x redacts the data of every run of a workflow that references a missing credential, which would hide the
+  // mock notifications in the Executions view.
+  console.log(
+    env.RESEND_API_KEY
+      ? "Importing Resend credential (piped via stdin, never written to host disk)..."
+      : "Importing a placeholder Resend credential (mock mode)...",
+  );
+  const creds = [
+    {
+      // Must match the httpHeaderAuth credential id referenced in both workflow JSONs.
+      id: "LLResendApiKey01",
+      name: "Resend API",
+      type: "httpHeaderAuth",
+      data: { name: "Authorization", value: `Bearer ${env.RESEND_API_KEY || "not-configured"}` },
+    },
+  ];
+  dc(
+    [
+      "exec",
+      "-T",
+      "n8n",
+      "sh",
+      "-c",
+      "cat > /tmp/ll-creds.json && n8n import:credentials --input=/tmp/ll-creds.json; rc=$?; rm -f /tmp/ll-creds.json; exit $rc",
+    ],
+    { input: JSON.stringify(creds), stdio: ["pipe", "inherit", "inherit"] },
+  );
 
   console.log("Publishing all three workflows...");
   n8n("publish:workflow", "--id=LLErrorHandler01");
