@@ -1,5 +1,6 @@
 import type { LoanView } from "@convex/lib/views";
 import { relativeTime } from "@/lib/labels";
+import { describeActivity, type Perspective } from "@/lib/activity";
 
 type ActivityEntry = LoanView["activity"][number];
 type Kind = ActivityEntry["kind"];
@@ -10,15 +11,22 @@ const WARNING_KINDS: ReadonlySet<Kind> = new Set<Kind>([
   "notification_failed",
 ]);
 
-export function ActivityList({ entries }: { entries: ActivityEntry[] }) {
-  if (entries.length === 0) {
-    return <p className="text-sm text-muted">No automation activity yet</p>;
+/**
+ * With a `perspective` (loan cards), entries are plain sentences for the borrower or lender and internal steps are
+ * hidden. Without one (admin console), the technical messages are shown as recorded.
+ */
+export function ActivityList({ entries, perspective }: { entries: ActivityEntry[]; perspective?: Perspective }) {
+  const rows = entries
+    .map((e) => ({ e, text: perspective ? describeActivity(e, perspective) : e.message }))
+    .filter((r): r is { e: ActivityEntry; text: string } => r.text !== null);
+  if (rows.length === 0) {
+    return perspective ? null : <p className="text-sm text-muted">No automation activity yet</p>;
   }
   return (
-    <ul aria-label="Automation activity" className="space-y-1.5">
-      {entries.map((e) => {
+    <ul aria-label={perspective ? "Updates" : "Automation activity"} className="space-y-1.5">
+      {rows.map(({ e, text }) => {
         const warn = WARNING_KINDS.has(e.kind);
-        const isReminder = e.kind === "reminder_sent";
+        const isReminder = e.kind === "reminder_sent" && !perspective;
         return (
           <li
             key={e._id}
@@ -38,7 +46,7 @@ export function ActivityList({ entries }: { entries: ActivityEntry[] }) {
             )}
             <span className="min-w-0 flex-1">
               {warn ? <span className="sr-only">Warning: </span> : null}
-              {isReminder ? `Reminder sent ${relativeTime(e.createdAt)}` : e.message}
+              {isReminder ? `Reminder sent ${relativeTime(e.createdAt)}` : text}
               {isReminder ? null : (
                 <span className="ml-2 text-xs text-muted">{relativeTime(e.createdAt)}</span>
               )}

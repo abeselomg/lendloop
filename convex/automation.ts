@@ -102,6 +102,7 @@ export const markDelivered = internalMutation({
         message: `${EVENT_LABELS[event.type]} notification handed to n8n`,
         idempotencyKey: key,
         createdAt: now,
+        meta: { eventType: event.type },
       });
     }
     return null;
@@ -134,6 +135,7 @@ export const markAttemptFailed = internalMutation({
           : `Could not reach n8n after ${attempts} attempts: ${error}`,
         idempotencyKey: key,
         createdAt: now,
+        meta: { eventType: event.type },
       });
     }
     return { willRetry: false };

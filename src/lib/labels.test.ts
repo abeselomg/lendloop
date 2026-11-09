@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { formatDateRange, relativeTime } from "./labels";
+import { formatDateRange, formatDay, relativeTime } from "./labels";
 
 describe("relativeTime", () => {
   const now = 1_800_000_000_000;
@@ -32,5 +32,10 @@ describe("formatDateRange", () => {
   });
   it("cross year", () => {
     expect(formatDateRange("2026-12-30", "2027-01-02")).toBe("30 Dec 2026 – 2 Jan 2027");
+  });
+
+  it("formatDay shows the weekday and never shifts the day", () => {
+    expect(formatDay("2026-12-01")).toBe("Tue 1 Dec 2026");
+    expect(formatDay("2026-11-09")).toBe("Mon 9 Nov 2026");
   });
 });

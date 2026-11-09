@@ -1,13 +1,14 @@
 import type { ReactNode } from "react";
 import type { LoanView } from "@convex/lib/views";
-import { todayUtc } from "@convex/lib/validation";
-import { formatDateRange } from "@/lib/labels";
+import { daysBetween, todayUtc } from "@convex/lib/validation";
+import { formatDay } from "@/lib/labels";
 import { StatusChip } from "@/components/StatusChip";
 import { ActivityList } from "@/components/ActivityList";
 
 export function LoanCard({ loan, actions }: { loan: LoanView; actions: ReactNode }) {
   const overdue = loan.status === "approved" && loan.endDate < todayUtc();
   const asBorrower = loan.viewerRole === "borrower";
+  const days = daysBetween(loan.startDate, loan.endDate) + 1;
   return (
     <article className="rounded-2xl border border-line bg-surface p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -42,13 +43,35 @@ export function LoanCard({ loan, actions }: { loan: LoanView; actions: ReactNode
           <StatusChip status={loan.status} />
         </div>
       </div>
-      <p className="mt-2 text-sm">{formatDateRange(loan.startDate, loan.endDate)}</p>
+      <dl className="mt-3 flex flex-wrap gap-x-8 gap-y-2 text-sm">
+        <div>
+          <dt className="text-xs text-muted">From</dt>
+          <dd className="font-medium">{formatDay(loan.startDate)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted">Until</dt>
+          <dd className="font-medium">{formatDay(loan.endDate)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted">Length</dt>
+          <dd className="font-medium">{days} {days === 1 ? "day" : "days"}</dd>
+        </div>
+      </dl>
       {loan.note ? (
         <p className="mt-3 rounded-lg bg-bg px-3 py-2 text-sm italic text-ink/80">{loan.note}</p>
       ) : null}
-      <div className="mt-4 border-t border-line pt-4">
-        <ActivityList entries={loan.activity} />
-      </div>
+      {loan.activity.some((e) => e.kind !== "webhook_delivered") ? (
+        <div className="mt-4 border-t border-line pt-4">
+          <ActivityList
+            entries={loan.activity}
+            perspective={{
+              viewerRole: loan.viewerRole,
+              borrowerName: loan.borrower.firstName,
+              lenderName: loan.lender.firstName,
+            }}
+          />
+        </div>
+      ) : null}
       <div className="mt-4 flex flex-wrap items-center justify-end gap-2">{actions}</div>
     </article>
   );

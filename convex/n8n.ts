@@ -71,7 +71,7 @@ export const recordNotification = internalMutation({
       message: `${EVENT_LABELS[event.type]} ${a.channel === "email" ? "email" : "mock notification"} ${a.status === "sent" ? "sent" : "failed"}${a.error ? ": " + a.error : ""}`,
       idempotencyKey: key,
       createdAt: Date.now(),
-      meta: compact({ channel: a.channel, providerMessageId: a.providerMessageId, sentAt: a.sentAt }),
+      meta: compact({ eventType: event.type, channel: a.channel, providerMessageId: a.providerMessageId, sentAt: a.sentAt }),
     });
     return { created: true };
   },

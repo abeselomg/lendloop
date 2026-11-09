@@ -63,3 +63,12 @@ export function formatDateRange(start: string, end: string): string {
   if (a.d === b.d) return `${a.d} ${a.month} ${a.y}`;
   return `${a.d}–${b.d} ${a.month} ${a.y}`;
 }
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** "Tue 1 Dec 2026" for a calendar day ("YYYY-MM-DD"). Built by hand so server and browser render the same text. */
+export function formatDay(iso: string): string {
+  const { y, m, d, month } = parts(iso);
+  const weekday = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  return `${weekday} ${d} ${month} ${y}`;
+}
