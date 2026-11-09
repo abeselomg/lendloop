@@ -428,52 +428,58 @@ access if you want to look around; otherwise the loan cards show every notificat
 
 ## Security and data-minimization decisions
 
-**Authorization lives in Convex, and identity comes only from the verified JWT.** Every query and mutation derives
-the caller from `ctx.auth.getUserIdentity()` and loads the user by Clerk id (`requireUser`, `requireAdmin` in
-`convex/lib/access.ts`); ownership checks compare that user with `tool.ownerId`, `loan.borrowerId` and
-`loan.lenderId` after loading the document. Why: the client is untrusted, so no function accepts a user id or role
-as an argument.
+**The server decides who you are.** The browser never says who the user is or what role they have. Each Convex
+function reads the signed-in user from the Clerk token (`requireUser` and `requireAdmin` in `convex/lib/access.ts`)
+and then checks they own the tool or loan before changing it. Admin actions do take the id of the user being
+changed (for example `setRole` or `setTrustedLender`), but the caller still has to be an admin. Only three functions
+work signed out: the public tool list, the category list and `users:me` (which returns nothing). Why: anything sent
+from the browser can be faked.
 
-**The public query is projected.** `listPublic` in `convex/tools/queries.ts` returns only `{_id, name, category}` and hides tools that are
-currently on loan. Owner, condition and description never leave the server unauthenticated. Why: the assignment
-asks for no owner details on the public page, and a projection in the query is stronger than hiding fields in the
-UI.
+**The public page shows only what it needs.** `listPublic` (`convex/tools/queries.ts`) returns each tool's name and
+category, and skips tools that are on loan. Owner, condition and description are never sent to signed-out visitors.
+Why: the assignment asks for no owner details there, and leaving fields out on the server is safer than hiding
+them in the page.
 
-**n8n gets the minimum for a notification.** The event payload contains one recipient email, first names, the tool
-name, dates, status and a link. It excludes user ids, the other party's email, tool descriptions and loan notes.
-The overdue endpoint returns the borrower's first name and email plus tool, dates and days overdue. Why: n8n keeps
-execution history, so whatever it receives is stored there.
+**n8n gets only what it needs to send a message.** For a loan event that is the recipient's email, both first names,
+the tool name, the dates, the status and a link. For an overdue loan it is the borrower's first name and email, the
+lender's first name, the tool, the dates and the days overdue. No user ids, no other email addresses, no tool
+descriptions. Error messages coming back from n8n have email addresses replaced with `[email]` before they are
+stored (`convex/n8n/internal.ts`). Why: n8n keeps a history of every run, so everything it receives is stored there.
 
-**Both directions are signed and replay-resistant.** HMAC-SHA256 over `timestamp.rawBody`, 5-minute window,
-constant-time comparison, a separate secret per direction. The n8n webhook receives the raw body so the signature
-is checked over the exact bytes. Why: it stops forged events, forged write-backs and replays of captured requests,
-and one leaked secret does not authenticate both directions.
+**Messages between Convex and n8n are signed.** Each request carries a timestamp and an HMAC signature made with a
+shared secret, and the receiver rejects it if the signature does not match or the timestamp is more than 5 minutes
+old. Each direction has its own secret. Why: this stops anyone else from sending fake events or fake results, or
+replaying an old request, and a leaked secret only opens one direction.
 
-**Secrets stay out of code and exported JSON.** Next.js keys are in `.env.local`, Convex secrets in the Convex
-environment, n8n secrets in `n8n/.env` (read by Code nodes through `$env`), and the Resend key is an encrypted n8n
-credential referenced by id and name only. `.env*` and `n8n/.env` are gitignored; the `.env.example` files hold
-names only. A test (`n8n/workflows.test.ts`) asserts the exported workflow JSON has no secret-looking values.
-Why: the assignment calls this out, and workflow exports are the usual place secrets leak.
+**Bad requests do not trigger alarms.** An unsigned or expired request to the n8n webhook gets `401` and stops
+there, without starting the error workflow. Why: otherwise anyone who finds the URL could fill the admin console
+with fake failures.
 
-**Unauthenticated traffic cannot flood the error workflow.** A request to the n8n webhook with a bad or stale
-signature gets `401` and the execution ends without raising an error. Why: otherwise anyone who finds the URL
-could fill the admin error panel.
+**Secrets are never in the repo.** They live in environment variables: `.env.local` for Next.js, the Convex
+environment for Convex, and `n8n/.env` locally or Railway variables on the live demo for n8n. The Resend key is
+stored encrypted inside n8n. Only the `.env.example` files are committed, with names and no values, and a test
+(`n8n/workflows.test.ts`) fails if the exported workflows contain anything that looks like a secret. One caveat:
+the workflows read their secrets from the environment, so anyone who can log in to the n8n editor can read them.
+That is why the live n8n login is not published.
 
-**Admin is a narrow role.** The first admin is granted from environment config; admins can then grant it to others,
-with guards against locking everyone out (no self-demotion, never zero admins). It covers view-all, remove-listing,
-trusted-lender, categories, roles and name corrections; no acting on other people's loans.
+**Admins have limited powers.** The first admin comes from the `ADMIN_EMAILS` setting; after that, admins can make
+other people admins. An admin cannot remove their own admin role, and the last admin cannot be removed. Admins can
+see all loans, remove listings, mark Trusted lenders, manage categories and roles, and fix names, but they cannot
+approve, decline or return other people's loans.
 
-**The Clerk webhook is verified, and Clerk's responses are not echoed.** `/clerk/webhook` accepts only Svix-signed
-requests within 5 minutes (`convex/lib/svix.ts`). The Clerk secret key stays in the Convex environment, the actions
-that use it check admin first, and a failed Clerk call surfaces only its status code. Why: the webhook can create and
-delete user records, and Clerk error bodies can contain account details.
+**The Clerk webhook only accepts messages from Clerk.** `/clerk/webhook` checks Clerk's signature and rejects
+anything older than 5 minutes (`convex/lib/svix.ts`). The Clerk secret key stays in the Convex environment, and if a
+call to Clerk fails, only the status code is shown, not Clerk's reply. Why: this webhook can create and delete user
+records, and Clerk's replies can contain account details.
 
-**Hardened n8n container.** Port bound to `127.0.0.1`, diagnostics off, settings-file permissions enforced, task
-runners enabled. `N8N_SECURE_COOKIE=false` is for local HTTP only and must be removed behind HTTPS.
+**The n8n container is locked down where it runs locally.** `n8n/docker-compose.yml` binds n8n to `127.0.0.1` only,
+turns off telemetry, enforces settings-file permissions and runs Code nodes in task runners. `N8N_SECURE_COOKIE=false`
+is set only because local n8n runs over plain HTTP. The live n8n on Railway uses HTTPS but its editor is reachable
+from the internet, protected only by n8n's own login; for real use it should sit behind a VPN or SSO.
 
-**Server-side input validation.** Tool names 2 to 60 characters, descriptions up to 300, category names 2 to 30,
-user names up to 50, strict ISO dates with the start not in the past or after the end (`convex/lib/validation.ts`,
-`convex/users/actions.ts`, unit-tested). Why: the UI's limits are advisory.
+**Input is checked on the server.** Tool names 2 to 60 characters, descriptions up to 300, category names 2 to 30,
+user names up to 50, and dates must be real calendar days with the start not in the past and not after the end
+(`convex/lib/validation.ts`, `convex/users/actions.ts`, unit-tested). Why: limits in the browser are easy to skip.
 
 ## Reliability and idempotency
 
@@ -544,7 +550,7 @@ The live demo runs like this:
 | n8n | Railway service built from [`n8n/railway/Dockerfile`](n8n/railway/Dockerfile) (`RAILWAY_DOCKERFILE_PATH`) | Pinned n8n 2.46.6 with the workflows baked in; imports and publishes them on boot. Step by step in [`n8n/railway/README.md`](n8n/railway/README.md) |
 | n8n database | Railway Postgres | Referenced with `${{Postgres.PGHOST}}` etc. |
 | Backend | Convex Cloud production deployment (`npx convex deploy`) | Env vars as listed above, with the Railway n8n webhook URL in `N8N_LOAN_EVENT_WEBHOOK_URL`, the Railway app URL in `APP_URL`, and `CLERK_SECRET_KEY` plus `CLERK_WEBHOOK_SECRET` for the Users tab. After a deploy that adds `searchText`, run `npx convex run --prod users/internal:backfillSearchText` once |
-| Auth | Clerk development instance | Fine for a demo; a production instance is in the production note. A webhook endpoint posts `user.created`, `user.updated` and `user.deleted` to `https://<prod>.convex.site/clerk/webhook` |
+| Auth | Clerk development instance | Fine for a demo; real use needs a Clerk production instance with its own keys. A webhook endpoint posts `user.created`, `user.updated` and `user.deleted` to `https://<prod>.convex.site/clerk/webhook` |
 
 Production uses its own signing secrets and n8n encryption key, different from the local ones. Nothing secret is in
 the repo: Railway and Convex hold them as environment variables. The n8n owner account was created right after the
