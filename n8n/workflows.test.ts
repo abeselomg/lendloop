@@ -176,6 +176,49 @@ describe("severe flag is carried forward (no reaching back to unexecuted nodes)"
     return (Array.isArray(out) ? out[0] : out).json as Record<string, unknown> & { body: string };
   }
 
+  describe("message wording", () => {
+    const payload = (type: string) => ({
+      type,
+      eventId: "evt1",
+      appUrl: "https://lendloop.example",
+      counterpartFirstName: "Bob",
+      recipient: { email: "alice@example.com" },
+      loan: { id: "l1", toolName: "Cordless drill", startDate: "2026-11-14", endDate: "2026-11-16" },
+    });
+    const build = async (type: string) => {
+      const out = await run(code(load("loan-notification"), "Build message"), payload(type), {});
+      return out as unknown as { to: string; subject: string; text: string };
+    };
+
+    it("tells the borrower their request is approved, with readable dates", async () => {
+      const m = await build("loan.approved");
+      expect(m.subject).toBe("Your request for Cordless drill is approved");
+      expect(m.text).toContain("Sat 14 Nov to Mon 16 Nov 2026");
+      expect(m.text).toContain("return it by Mon 16 Nov 2026");
+      expect(m.to).toBe("alice@example.com");
+    });
+
+    it("uses readable dates in every message and never the raw ISO form", async () => {
+      for (const t of ["loan.requested", "loan.approved", "loan.declined", "loan.returned", "loan.cancelled"]) {
+        const m = await build(t);
+        expect(m.text).not.toMatch(/\d{4}-\d{2}-\d{2}/);
+      }
+    });
+
+    it("reminders use readable dates too", async () => {
+      const w = load("overdue-reminders");
+      const data = {
+        today: "2026-11-18",
+        loans: [{ loanId: "l1", toolName: "Ladder", endDate: "2026-11-16", daysOverdue: 2, lenderFirstName: "Bob", borrower: { email: "a@b.c", firstName: "Alice" } }],
+      };
+      const fn = new AsyncFunction("$input", code(w, "Fan out"));
+      const out = (await fn({ first: () => ({ json: data }) })) as { json: { subject: string; text: string; reminderKey: string } }[];
+      expect(out[0].json.subject).toBe("Reminder: Ladder was due Mon 16 Nov 2026");
+      expect(out[0].json.text).toContain("was due on Mon 16 Nov 2026 (2 days ago)");
+      expect(out[0].json.reminderKey).toBe("l1:2026-11-18");
+    });
+  });
+
   it.each([
     ["loan-notification", "Build message", { to: "a@b.c", subject: "S", text: "T", eventId: "evt1", loanId: "l1" }],
     ["overdue-reminders", "Fan out", { to: "a@b.c", subject: "S", text: "T", reminderKey: "l1:2026-01-01", loanId: "l1" }],

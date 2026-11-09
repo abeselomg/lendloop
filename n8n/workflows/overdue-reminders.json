@@ -69,7 +69,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const data = $input.first().json;\nreturn (data.loans || []).map((l) => ({\n  json: {\n    ...l,\n    to: l.borrower.email,\n    firstName: l.borrower.firstName,\n    reminderKey: l.loanId + ':' + data.today,\n    subject: 'Reminder: ' + l.toolName + ' was due ' + l.endDate,\n    text: 'Hi ' + l.borrower.firstName + ', your loan of ' + l.toolName + ' from ' + l.lenderFirstName + ' was due on ' + l.endDate + ' (' + l.daysOverdue + ' day(s) ago). Please return it and ask them to mark it returned. — LendLoop',\n  },\n}));"
+        "jsCode": "const data = $input.first().json;\n// Readable due date for people: \"Mon 16 Nov 2026\".\nconst WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];\nconst MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];\nconst day = (iso) => {\n  const [y, m, d] = iso.split('-').map(Number);\n  return WD[new Date(Date.UTC(y, m - 1, d)).getUTCDay()] + ' ' + d + ' ' + MO[m - 1] + ' ' + y;\n};\nreturn (data.loans || []).map((l) => ({\n  json: {\n    ...l,\n    to: l.borrower.email,\n    firstName: l.borrower.firstName,\n    reminderKey: l.loanId + ':' + data.today,\n    subject: 'Reminder: ' + l.toolName + ' was due ' + day(l.endDate),\n    text: 'Hi ' + l.borrower.firstName + ', your loan of ' + l.toolName + ' from ' + l.lenderFirstName + ' was due on ' + day(l.endDate) + ' (' + l.daysOverdue + (l.daysOverdue === 1 ? ' day' : ' days') + ' ago). Please return it and ask them to mark it returned. — LendLoop',\n  },\n}));"
       },
       "id": "11111111-0000-4000-8000-000000000017",
       "name": "Fan out",
