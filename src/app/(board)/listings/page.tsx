@@ -9,6 +9,7 @@ import type { Id } from "@convex/_generated/dataModel";
 import { CONDITION_LABELS } from "@/lib/labels";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { EmptyState } from "@/components/EmptyState";
+import { ToolGridSkeleton } from "@/components/Skeleton";
 
 const primaryLink =
   "rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-accent-ink transition-opacity hover:opacity-90";
@@ -53,9 +54,7 @@ export default function ListingsPage() {
 
       <div className="mt-6">
         {tools === undefined ? (
-          <p className="text-sm text-muted" aria-live="polite">
-            Loading your listings…
-          </p>
+          <ToolGridSkeleton label="Loading your listings" count={3} />
         ) : tools.length === 0 ? (
           <EmptyState
             title="You haven't listed anything yet"

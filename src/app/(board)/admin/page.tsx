@@ -12,16 +12,11 @@ import { CategoryBadge } from "@/components/CategoryBadge";
 import { ActivityList } from "@/components/ActivityList";
 import { LoanActionButton } from "@/components/LoanActionButton";
 import { formatDateRange, relativeTime } from "@/lib/labels";
+import { PageSkeleton, RowsSkeleton } from "@/components/Skeleton";
 
 export default function AdminPage() {
   const me = useQuery(api.users.me);
-  if (me === undefined) {
-    return (
-      <p className="text-sm text-muted" aria-live="polite">
-        Loading…
-      </p>
-    );
-  }
+  if (me === undefined) return <PageSkeleton label="Loading" pathname="/admin" />;
   if (me === null || me.role !== "admin") {
     return (
       <EmptyState
@@ -39,14 +34,6 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
       <div className="mt-4">{children}</div>
     </section>
-  );
-}
-
-function Loading() {
-  return (
-    <p className="text-sm text-muted" aria-live="polite">
-      Loading…
-    </p>
   );
 }
 
@@ -122,7 +109,7 @@ function AdminConsole() {
 
       <Section title="All loans">
         {loans === undefined ? (
-          <Loading />
+          <RowsSkeleton label="Loading loans" />
         ) : loans.length === 0 ? (
           <Empty>No loans yet.</Empty>
         ) : (
@@ -180,7 +167,7 @@ function AdminConsole() {
 
       <Section title="All listings">
         {tools === undefined ? (
-          <Loading />
+          <RowsSkeleton label="Loading listings" />
         ) : tools.length === 0 ? (
           <Empty>No listings yet.</Empty>
         ) : (
@@ -220,7 +207,7 @@ function AdminConsole() {
 
       <Section title="Neighbors">
         {users === undefined ? (
-          <Loading />
+          <RowsSkeleton label="Loading neighbors" />
         ) : users.length === 0 ? (
           <Empty>No neighbors yet.</Empty>
         ) : (
@@ -256,7 +243,7 @@ function AdminConsole() {
 
       <Section title="Automation failures">
         {failures === undefined ? (
-          <Loading />
+          <RowsSkeleton label="Loading automation failures" />
         ) : failures.events.length === 0 && failures.errors.length === 0 ? (
           <Empty>No failures. Nice.</Empty>
         ) : (

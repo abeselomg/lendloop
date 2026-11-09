@@ -9,6 +9,7 @@ import { CATEGORY_LABELS } from "@/lib/labels";
 import { EmptyState } from "@/components/EmptyState";
 import { ToolCard } from "@/components/ToolCard";
 import { RequestDialog } from "@/components/RequestDialog";
+import { ToolGridSkeleton } from "@/components/Skeleton";
 
 function chip(active: boolean) {
   return `rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
@@ -61,9 +62,7 @@ export default function BrowsePage() {
 
       <div className="mt-2">
         {tools === undefined ? (
-          <p className="text-sm text-muted" aria-live="polite">
-            Loading tools…
-          </p>
+          <ToolGridSkeleton label="Loading tools" />
         ) : tools.length === 0 ? (
           <EmptyState
             title="No tools in this category yet."

@@ -7,6 +7,7 @@ import { todayUtc } from "@convex/lib/validation";
 import { EmptyState } from "@/components/EmptyState";
 import { LoanCard } from "@/components/LoanCard";
 import { LoanActionButton } from "@/components/LoanActionButton";
+import { LoanListSkeleton } from "@/components/Skeleton";
 
 export default function RequestsPage() {
   const loans = useQuery(api.loans.mine);
@@ -17,9 +18,7 @@ export default function RequestsPage() {
       <h1 className="text-2xl font-semibold tracking-tight">My requests</h1>
       <div className="mt-6">
         {loans === undefined ? (
-          <p className="text-sm text-muted" aria-live="polite">
-            Loading your requests…
-          </p>
+          <LoanListSkeleton label="Loading your requests" />
         ) : loans.length === 0 ? (
           <EmptyState
             title="No requests yet"

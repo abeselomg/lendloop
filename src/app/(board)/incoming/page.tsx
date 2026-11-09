@@ -5,6 +5,7 @@ import { api } from "@convex/_generated/api";
 import { EmptyState } from "@/components/EmptyState";
 import { LoanCard } from "@/components/LoanCard";
 import { LoanActionButton } from "@/components/LoanActionButton";
+import { LoanListSkeleton } from "@/components/Skeleton";
 
 export default function IncomingPage() {
   const loans = useQuery(api.loans.incoming);
@@ -30,9 +31,7 @@ export default function IncomingPage() {
       <h1 className="text-2xl font-semibold tracking-tight">Incoming requests</h1>
       <div className="mt-6">
         {loans === undefined ? (
-          <p className="text-sm text-muted" aria-live="polite">
-            Loading incoming requests…
-          </p>
+          <LoanListSkeleton label="Loading incoming requests" />
         ) : loans.length === 0 ? (
           <EmptyState
             title="Nothing incoming yet"

@@ -7,6 +7,7 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { EmptyState } from "@/components/EmptyState";
 import { ToolForm } from "@/components/ToolForm";
+import { FormSkeleton } from "@/components/Skeleton";
 
 export default function EditListingPage() {
   const params = useParams<{ id: string }>();
@@ -17,9 +18,12 @@ export default function EditListingPage() {
 
   if (tool === undefined) {
     return (
-      <p className="text-sm text-muted" aria-live="polite">
-        Loading listing…
-      </p>
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Edit listing</h1>
+        <div className="mt-6">
+          <FormSkeleton label="Loading listing" />
+        </div>
+      </div>
     );
   }
 
