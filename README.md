@@ -351,10 +351,16 @@ Sign in at <http://localhost:5678> with the owner account you created during set
 - **Every run:** sidebar **Overview**, tab **Executions** (or open a workflow and use its own **Executions** tab).
   Green runs succeeded, red ones failed. Each borrow request, approval, decline, return or cancellation in the app
   produces one "LendLoop – Loan notification" run within a second or two.
+
+  ![n8n Overview, Executions tab: one row per run with status, start time and run time](docs/screenshots/n8n-executions.png)
 - **Read a mock notification:** click a run, then the **Mock log** node. Its output has
   `mockNotification` with `to`, `subject` and `text`, for example
   `{ "to": "alice+clerk_test@example.com", "subject": "Request for Camping stove was cancelled", "text": "Bob cancelled their request for 2026-11-27 to 2026-11-28." }`.
   With real email on, look at **Send via Resend** and the Resend dashboard instead.
+
+  ![One run of the Loan notification workflow: the green path goes through Mock log](docs/screenshots/n8n-run.png)
+
+  ![The Mock log node opened: the OUTPUT panel (JSON view) shows mockNotification with to, subject and text](docs/screenshots/n8n-mock-log.png)
 - **Follow one run end to end:** **Verify signature** (was the call from Convex genuine), **Build message** (who is
   told what), **Mock log** or **Send via Resend**, **Sign write-back** and **Record notification** (Convex's reply;
   `created: false` means a retry was recognised as a duplicate).
