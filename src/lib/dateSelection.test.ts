@@ -51,12 +51,12 @@ describe("dateSelection", () => {
 
   it("previews the return day only when it would be a valid end", () => {
     const start = { start: "2026-11-10", end: null };
-    expect(previewEnd(start, "2026-11-12", booked, 30)).toBe("2026-11-12");
-    expect(previewEnd(start, "2026-11-10", booked, 30)).toBe("2026-11-10"); // one-day loan
-    expect(previewEnd(start, "2026-11-08", booked, 30)).toBeNull(); // before the start
-    expect(previewEnd(start, "2026-11-18", booked, 30)).toBeNull(); // across booked days
-    expect(previewEnd(start, "2026-12-11", [], 30)).toBeNull(); // past the loan limit
-    expect(previewEnd({ start: "2026-11-10", end: "2026-11-12" }, "2026-11-13", booked, 30)).toBeNull(); // range done
-    expect(previewEnd(none, "2026-11-12", booked, 30)).toBeNull();
+    expect(previewEnd(start, "2026-11-12", booked)).toBe("2026-11-12");
+    expect(previewEnd(start, "2026-11-10", booked)).toBe("2026-11-10"); // one-day loan
+    expect(previewEnd(start, "2026-11-08", booked)).toBeNull(); // before the start
+    expect(previewEnd(start, "2026-11-18", booked)).toBeNull(); // across booked days
+    expect(previewEnd(start, "2027-03-01", [])).toBe("2027-03-01"); // no cap on loan length
+    expect(previewEnd({ start: "2026-11-10", end: "2026-11-12" }, "2026-11-13", booked)).toBeNull(); // range done
+    expect(previewEnd(none, "2026-11-12", booked)).toBeNull();
   });
 });

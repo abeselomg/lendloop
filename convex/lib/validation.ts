@@ -37,7 +37,6 @@ export type LoanStatus = (typeof LOAN_STATUSES)[number];
 export type EventType = (typeof EVENT_TYPES)[number];
 export type LogKind = (typeof LOG_KINDS)[number];
 
-export const MAX_LOAN_DAYS = 30;
 
 const DAY_MS = 86_400_000;
 
@@ -75,7 +74,6 @@ export function validateDateRange(startDate: string, endDate: string, today: str
   if (!isIsoDate(startDate) || !isIsoDate(endDate)) return "Dates must be in YYYY-MM-DD format";
   if (startDate < today) return "Start date can't be in the past";
   if (endDate < startDate) return "End date can't be before the start date";
-  if (daysBetween(startDate, endDate) > MAX_LOAN_DAYS) return `Loans are limited to ${MAX_LOAN_DAYS} days`;
   return null;
 }
 

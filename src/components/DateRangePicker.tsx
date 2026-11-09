@@ -3,10 +3,9 @@
 import { useState } from "react";
 import { DayPicker, type Matcher } from "react-day-picker";
 import "react-day-picker/style.css";
-import { MAX_LOAN_DAYS, daysBetween } from "@convex/lib/validation";
+import { daysBetween } from "@convex/lib/validation";
 import { dateToIso, isoToDate, nextSelection, previewEnd, type DateSelection } from "@/lib/dateSelection";
 
-const addDays = (date: Date, n: number) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + n);
 const dayLabel = (iso: string) =>
   isoToDate(iso).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 
@@ -36,12 +35,10 @@ export function DateRangePicker({
 }) {
   // The day under the pointer or keyboard focus, used to preview the range before the return day is clicked.
   const [hovered, setHovered] = useState<string | null>(null);
-  const preview = previewEnd(value, hovered, booked ?? [], MAX_LOAN_DAYS);
+  const preview = previewEnd(value, hovered, booked ?? []);
   const first = isoToDate(today);
   const bookedMatchers: Matcher[] = (booked ?? []).map((b) => ({ from: isoToDate(b.startDate), to: isoToDate(b.endDate) }));
   const disabled: Matcher[] = [{ before: first }, ...bookedMatchers];
-  // While the start is picked and the end is not, days past the loan limit can't be the end.
-  if (value.start && !value.end) disabled.push({ after: addDays(isoToDate(value.start), MAX_LOAN_DAYS) });
 
   return (
     <div className="lendloop-rdp rounded-xl border border-line bg-bg px-2 py-1">
@@ -67,7 +64,6 @@ export function DateRangePicker({
         onDayFocus={(day) => setHovered(dateToIso(day))}
         onDayBlur={() => setHovered(null)}
         startMonth={first}
-        endMonth={addDays(first, 365)}
         defaultMonth={value.start ? isoToDate(value.start) : first}
         showOutsideDays
         footer={

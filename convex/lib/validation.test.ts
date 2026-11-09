@@ -31,10 +31,10 @@ describe("validation", () => {
   });
   it("validateDateRange accepts start === today", () =>
     expect(validateDateRange("2026-11-07", "2026-11-10", "2026-11-07")).toBeNull());
-  it("validateDateRange rejects start in past, end before start, > 30 days, bad format", () => {
+  it("validateDateRange rejects start in past, end before start, bad format; any length is allowed", () => {
     expect(validateDateRange("2026-11-06", "2026-11-10", "2026-11-07")).toEqual(expect.any(String));
     expect(validateDateRange("2026-11-10", "2026-11-09", "2026-11-07")).toEqual(expect.any(String));
-    expect(validateDateRange("2026-11-07", "2026-12-08", "2026-11-07")).toEqual(expect.any(String));
+    expect(validateDateRange("2026-11-07", "2027-05-07", "2026-11-07")).toBeNull(); // no cap on loan length
     expect(validateDateRange("2026-11-7", "2026-11-10", "2026-11-07")).toEqual(expect.any(String));
     expect(validateDateRange("2026-11-07", "2026-12-07", "2026-11-07")).toBeNull();
   });

@@ -339,7 +339,7 @@ Lender. Admins deliberately **cannot** approve, decline or return other people's
 a matching email gets `role: "admin"`. Removing an email from the list does not demote an existing admin.
 
 **Rules worth knowing.** Dates are ISO `YYYY-MM-DD`, the start must not be in the past (UTC) or after the end, and
-a range is at most 30 days. You cannot borrow your own tool. A request for days that overlap an already
+there is no limit on how long a loan can be (the borrower asks for the days they need; the lender decides). You cannot borrow your own tool. A request for days that overlap an already
 **approved** loan is rejected (`request` in `convex/loans/mutations.ts`), and approval checks again (`approve`). Overlapping **pending**
 requests are allowed (the lender chooses). Dates are picked on a calendar that crosses out booked days
 (`bookedRanges` in `convex/loans/queries.ts` returns only the start and end dates of approved loans, never who borrowed), so a tool that is
