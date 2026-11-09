@@ -87,7 +87,8 @@ Convex functions live in `automation/outbox.ts` and `lib/`. Each domain test sit
 | Table | Purpose |
 | --- | --- |
 | `users` | Mirror of the Clerk user: `clerkId`, `email`, `name`, `role` (`admin` or `user`), `trustedLender` |
-| `tools` | Listings: owner, name, category, condition, description |
+| `tools` | Listings: owner, name, category (a category slug), condition, description. Search index on name, filterable by category |
+| `categories` | Admin-managed categories: `slug` (stable id stored on tools), `label`, `icon`, `active`, `order`. Seeded with 8 defaults (`categories/internal:seedDefaults`, also run by `npm run seed`); archived ones disappear from new listings and filters but stay on existing tools, and one can only be deleted when no tool uses it |
 | `loans` | One borrow request: tool (with a `toolName` snapshot), borrower, lender, `startDate`/`endDate` (`YYYY-MM-DD`), `status` (`pending`, `approved`, `declined`, `returned`, `cancelled`), `lastReminderAt`, `reminderCount` |
 | `automationEvents` | Outbox of loan events to deliver to n8n (`pending`, `delivered`, `failed`, attempts, next attempt) |
 | `automationLog` | Per-loan timeline shown in the UI, and the idempotency ledger for n8n write-backs (unique by convention on `idempotencyKey`) |
@@ -381,6 +382,12 @@ Container logs (`docker compose logs n8n`, Railway logs) only show startup and e
 On the live demo the n8n editor is private: its owner login is held by the repo owner and is not in the repo. Ask for
 access if you want to look around; otherwise the loan cards show every notification's outcome.
 
+### Lists, search and the admin console
+
+- Every list is paginated with Convex cursor pagination (`usePaginatedQuery`, wrapped by `src/lib/hooks/usePagedQuery.ts` into Previous / Next pages): 12 cards on Browse, My listings and the public board, 6 loans on My requests and Incoming, 10 rows in admin tables. The public board drops tools that are on loan within each page, so a page can be shorter than 12.
+- Browse searches tool names through a Convex search index (`tools/queries:list` with `search`), combined with the category filter; results come back in relevance order.
+- Incoming is split into tabs (Needs your decision, Active loans, History). The admin console has tabs for Loans (status filter), Listings (search, remove with confirmation), Neighbors (Trusted lender), Categories (add, rename, change icon, reorder, archive or restore, delete when unused) and Automation failures. The active tab is kept in the URL (`?tab=`), so it survives a refresh and can be linked.
+
 ## Security and data-minimization decisions
 
 **Authorization lives in Convex, and identity comes only from the verified JWT.** Every query and mutation derives
@@ -577,7 +584,7 @@ The n8n workflow JSON is tested structurally and its Code nodes are tested again
 
 - Happy path: request and approval create events that n8n delivers; the log shows `webhook_delivered` then `notification_sent` (channel mock).
 - n8n down: the event keeps `pending` with `attempts`, `lastError` and a ~30 s backoff, and is delivered after n8n returns. Just after a restart n8n answers `/healthz` before its webhook is registered, so the first retry can get HTTP 404 and the next one succeeds.
-- Bad or stale signature gets 401 and starts no error workflow; a signed payload that breaks a node runs the error handler, which writes a `workflow_error` row (visible in `automation:listFailures`).
+- Bad or stale signature gets 401 and starts no error workflow; a signed payload that breaks a node runs the error handler, which writes a `workflow_error` row (visible in the admin console's **Automation failures** tab, `automation/queries:workflowErrors`).
 - Overdue reminders: one `reminder_sent`, `reminderCount` 1, a second run sends nothing, and replaying a signed write-back returns `created:false`.
 - Malformed write-backs: invalid JSON, unknown loan and bad status get 400; unsigned gets 401.
 - Browser flow with real Clerk sign-in (Clerk dev instance, `+clerk_test` emails, Chrome driven by Playwright): public page, sign-in redirect for signed-out `/browse`, listing create/edit with validation, category filter, request with date validation, approve / decline / cancel / return, n8n activity entries appearing on the loans, admin console (trusted-lender toggle shows the badge on the board, listing removal, non-admin blocked), 390 px viewport without horizontal scroll, dark mode. One account signed up through the UI; Clerk's bot protection blocks automated sign-up forms, so the other two test accounts were created with Clerk's Backend API and then signed in through the UI.
