@@ -1,15 +1,19 @@
+import { paginationOptsValidator } from "convex/server";
 import { query } from "../_generated/server";
 import { requireAdmin } from "../lib/access";
 import type { ActivityEntry } from "../lib/views";
 
-export const listFailures = query({
-  args: {},
-  handler: async (ctx) => {
+export const failedEvents = query({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts }) => {
     await requireAdmin(ctx);
-    const failed = await ctx.db.query("automationEvents").withIndex("by_status", (q) => q.eq("status", "failed")).collect();
-    failed.sort((a, b) => b.createdAt - a.createdAt);
-    const events = await Promise.all(
-      failed.map(async (e) => {
+    const result = await ctx.db
+      .query("automationEvents")
+      .withIndex("by_status", (q) => q.eq("status", "failed"))
+      .order("desc")
+      .paginate(paginationOpts);
+    const page = await Promise.all(
+      result.page.map(async (e) => {
         const loan = await ctx.db.get(e.loanId);
         return {
           _id: e._id,
@@ -22,8 +26,20 @@ export const listFailures = query({
         };
       }),
     );
-    const logs = await ctx.db.query("automationLog").withIndex("by_kind", (q) => q.eq("kind", "workflow_error")).order("desc").take(20);
-    const errors: ActivityEntry[] = logs.map((l) => ({
+    return { ...result, page };
+  },
+});
+
+export const workflowErrors = query({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts }) => {
+    await requireAdmin(ctx);
+    const result = await ctx.db
+      .query("automationLog")
+      .withIndex("by_kind", (q) => q.eq("kind", "workflow_error"))
+      .order("desc")
+      .paginate(paginationOpts);
+    const page: ActivityEntry[] = result.page.map((l) => ({
       _id: l._id,
       kind: l.kind,
       source: l.source,
@@ -31,6 +47,6 @@ export const listFailures = query({
       createdAt: l.createdAt,
       meta: l.meta,
     }));
-    return { events, errors };
+    return { ...result, page };
   },
 });

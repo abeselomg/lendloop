@@ -2,18 +2,13 @@
 
 import { useState, type FormEvent } from "react";
 import { ConvexError } from "convex/values";
-import {
-  CATEGORIES,
-  CONDITIONS,
-  validateToolInput,
-  type Category,
-  type Condition,
-} from "@convex/lib/validation";
-import { CATEGORY_LABELS, CONDITION_LABELS } from "@/lib/labels";
+import { CONDITIONS, validateToolInput, type Condition } from "@convex/lib/validation";
+import { CONDITION_LABELS } from "@/lib/labels";
+import { useCategories } from "@/lib/hooks/useCategories";
 
 export type ToolFormValues = {
   name: string;
-  category: Category;
+  category: string;
   condition: Condition;
   description: string;
 };
@@ -31,7 +26,12 @@ export function ToolForm({
   onSubmit: (values: ToolFormValues) => Promise<void>;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
-  const [category, setCategory] = useState<Category>(initial?.category ?? CATEGORIES[0]);
+  const categories = useCategories();
+  // Empty until the user picks; falls back to the first active category so the select is never blank.
+  const [picked, setPicked] = useState<string | null>(initial?.category ?? null);
+  const category = picked ?? categories.active[0]?.slug ?? "";
+  // A tool keeps its category even after an admin archives it, so offer it as the current choice.
+  const archived = categories.all.find((c) => c.slug === initial?.category && !c.active);
   const [condition, setCondition] = useState<Condition>(
     initial?.condition ?? CONDITIONS[0],
   );
@@ -82,12 +82,15 @@ export function ToolForm({
           Category
           <select
             value={category}
-            onChange={(e) => setCategory(e.target.value as Category)}
+            onChange={(e) => setPicked(e.target.value)}
             className={fieldClass}
           >
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {CATEGORY_LABELS[c]}
+            {archived ? (
+              <option value={archived.slug}>{archived.label} (archived)</option>
+            ) : null}
+            {categories.active.map((c) => (
+              <option key={c.slug} value={c.slug}>
+                {c.label}
               </option>
             ))}
           </select>

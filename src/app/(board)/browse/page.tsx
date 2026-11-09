@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { CATEGORIES, type Category } from "@convex/lib/validation";
 import type { ToolView } from "@convex/lib/views";
-import { CATEGORY_LABELS } from "@/lib/labels";
+import { useCategories } from "@/lib/hooks/useCategories";
+import { usePagedQuery } from "@/lib/hooks/usePagedQuery";
 import { EmptyState } from "@/components/EmptyState";
 import { ToolCard } from "@/components/ToolCard";
 import { RequestDialog } from "@/components/RequestDialog";
 import { ToolGridSkeleton } from "@/components/Skeleton";
+import { Pagination } from "@/components/ui/Pagination";
+import { SearchInput } from "@/components/ui/SearchInput";
 
 function chip(active: boolean) {
   return `rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
@@ -20,10 +21,19 @@ function chip(active: boolean) {
 }
 
 export default function BrowsePage() {
-  const [category, setCategory] = useState<Category | null>(null);
+  const { active } = useCategories();
+  const [category, setCategory] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  // SearchInput owns its text; bumping the key remounts it empty.
+  const [searchKey, setSearchKey] = useState(0);
   const [requesting, setRequesting] = useState<ToolView | null>(null);
   const [sent, setSent] = useState(false);
-  const tools = useQuery(api.tools.queries.list, category ? { category } : {});
+  const term = search.trim();
+  const pager = usePagedQuery(
+    api.tools.queries.list,
+    { ...(category ? { category } : {}), ...(term ? { search: term } : {}) },
+    { pageSize: 12 },
+  );
 
   useEffect(() => {
     if (!sent) return;
@@ -34,7 +44,14 @@ export default function BrowsePage() {
   return (
     <div>
       <h1 className="text-2xl font-semibold tracking-tight">Browse tools</h1>
-      <div className="mt-5 flex flex-wrap gap-2" role="group" aria-label="Filter by category">
+      <SearchInput
+        key={searchKey}
+        label="Search tools"
+        placeholder="Search by name"
+        onChange={setSearch}
+        className="mt-5 max-w-md"
+      />
+      <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Filter by category">
         <button
           type="button"
           aria-pressed={category === null}
@@ -43,15 +60,15 @@ export default function BrowsePage() {
         >
           All
         </button>
-        {CATEGORIES.map((c) => (
+        {active.map((c) => (
           <button
-            key={c}
+            key={c.slug}
             type="button"
-            aria-pressed={category === c}
-            onClick={() => setCategory(c)}
-            className={chip(category === c)}
+            aria-pressed={category === c.slug}
+            onClick={() => setCategory(c.slug)}
+            className={chip(category === c.slug)}
           >
-            {CATEGORY_LABELS[c]}
+            {c.label}
           </button>
         ))}
       </div>
@@ -61,24 +78,46 @@ export default function BrowsePage() {
       </div>
 
       <div className="mt-2">
-        {tools === undefined ? (
+        {pager.isLoading ? (
           <ToolGridSkeleton label="Loading tools" />
-        ) : tools.length === 0 ? (
-          <EmptyState
-            title="No tools in this category yet."
-            body="Try another category or list one yourself."
-          />
+        ) : pager.items.length === 0 ? (
+          term ? (
+            <EmptyState
+              title={`No tools match “${term}”`}
+              body="Check the spelling or try a shorter search."
+              action={
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch("");
+                    setSearchKey((k) => k + 1);
+                  }}
+                  className="rounded-full border border-line px-4 py-1.5 text-sm font-medium hover:border-accent"
+                >
+                  Clear search
+                </button>
+              }
+            />
+          ) : (
+            <EmptyState
+              title="No tools in this category yet."
+              body="Try another category or list one yourself."
+            />
+          )
         ) : (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {tools.map((t) => (
-              <li key={t._id} className="flex">
-                <ToolCard
-                  tool={t}
-                  onRequest={!t.owner.isMe ? () => setRequesting(t) : undefined}
-                />
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {pager.items.map((t) => (
+                <li key={t._id} className="flex">
+                  <ToolCard
+                    tool={t}
+                    onRequest={!t.owner.isMe ? () => setRequesting(t) : undefined}
+                  />
+                </li>
+              ))}
+            </ul>
+            <Pagination pager={pager} label="tools" />
+          </>
         )}
       </div>
 

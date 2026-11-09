@@ -1,7 +1,5 @@
-import type { Category } from "@convex/lib/validation";
-
-// 24x24 line icons, one per category. Decorative: the category name is always shown as text next to them.
-const PATHS: Record<Category, React.ReactNode> = {
+// 24x24 line icons, one per icon key (see CATEGORY_ICONS). Unknown keys render the "other" box. Decorative: the category name is always shown as text next to them.
+const PATHS: Record<string, React.ReactNode> = {
   power_tools: (
     <>
       <path d="M3 6.5h10.5a2.5 2.5 0 0 1 2.5 2.5v.5a2.5 2.5 0 0 1-2.5 2.5H9" />
@@ -61,7 +59,7 @@ const PATHS: Record<Category, React.ReactNode> = {
   ),
 };
 
-export function CategoryIcon({ category, className }: { category: Category; className?: string }) {
+export function CategoryIcon({ icon, className }: { icon: string; className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -73,7 +71,7 @@ export function CategoryIcon({ category, className }: { category: Category; clas
       aria-hidden="true"
       className={className}
     >
-      {PATHS[category]}
+      {PATHS[icon] ?? PATHS.other}
     </svg>
   );
 }

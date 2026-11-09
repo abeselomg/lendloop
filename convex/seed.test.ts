@@ -15,6 +15,7 @@ describe("seed.demo", () => {
       expect(tools).toHaveLength(8);
       expect(users).toHaveLength(1);
       expect(users[0].trustedLender).toBe(true);
+      expect(await ctx.db.query("categories").collect()).toHaveLength(8);
       expect(tools.every((x) => x.ownerId === users[0]._id)).toBe(true);
     });
   });

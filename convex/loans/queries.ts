@@ -1,11 +1,10 @@
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { query } from "../_generated/server";
+import { loanStatusValidator } from "../schema";
 import { requireAdmin, requireUser } from "../lib/access";
 import { todayUtc } from "../lib/validation";
 import { toLoanView } from "../lib/views";
-
-const newestFirst = <T extends { createdAt: number; _creationTime: number }>(a: T, b: T) =>
-  b.createdAt - a.createdAt || b._creationTime - a._creationTime;
 
 /** Dates a tool is already lent out (approved, not yet ended), for the request calendar. Dates only: no borrower. */
 export const bookedRanges = query({
@@ -24,30 +23,50 @@ export const bookedRanges = query({
   },
 });
 
+// Indexes order by _creationTime, which equals request order (createdAt is set at insert).
 export const mine = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts }) => {
     const viewer = await requireUser(ctx);
-    const loans = await ctx.db.query("loans").withIndex("by_borrower", (q) => q.eq("borrowerId", viewer._id)).collect();
-    return await Promise.all(loans.sort(newestFirst).map((l) => toLoanView(ctx, l, viewer)));
+    const result = await ctx.db
+      .query("loans")
+      .withIndex("by_borrower", (q) => q.eq("borrowerId", viewer._id))
+      .order("desc")
+      .paginate(paginationOpts);
+    return { ...result, page: await Promise.all(result.page.map((l) => toLoanView(ctx, l, viewer))) };
   },
 });
 
 export const incoming = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { paginationOpts: paginationOptsValidator, group: v.union(v.literal("pending"), v.literal("active"), v.literal("history")) },
+  handler: async (ctx, { paginationOpts, group }) => {
     const viewer = await requireUser(ctx);
-    const loans = await ctx.db.query("loans").withIndex("by_lender", (q) => q.eq("lenderId", viewer._id)).collect();
-    loans.sort((a, b) => Number(b.status === "pending") - Number(a.status === "pending") || newestFirst(a, b));
-    return await Promise.all(loans.map((l) => toLoanView(ctx, l, viewer)));
+    const base = ctx.db.query("loans");
+    const result =
+      group === "history"
+        ? await base
+            .withIndex("by_lender", (q) => q.eq("lenderId", viewer._id))
+            .order("desc")
+            .filter((q) => q.and(q.neq(q.field("status"), "pending"), q.neq(q.field("status"), "approved")))
+            .paginate(paginationOpts)
+        : await base
+            .withIndex("by_lender_status", (q) =>
+              q.eq("lenderId", viewer._id).eq("status", group === "pending" ? "pending" : "approved"),
+            )
+            .order("desc")
+            .paginate(paginationOpts);
+    return { ...result, page: await Promise.all(result.page.map((l) => toLoanView(ctx, l, viewer))) };
   },
 });
 
 export const all = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { paginationOpts: paginationOptsValidator, status: v.optional(loanStatusValidator) },
+  handler: async (ctx, { paginationOpts, status }) => {
     const viewer = await requireAdmin(ctx);
-    const loans = await ctx.db.query("loans").collect();
-    return await Promise.all(loans.sort(newestFirst).map((l) => toLoanView(ctx, l, viewer)));
+    const q = status
+      ? ctx.db.query("loans").withIndex("by_status", (x) => x.eq("status", status))
+      : ctx.db.query("loans");
+    const result = await q.order("desc").paginate(paginationOpts);
+    return { ...result, page: await Promise.all(result.page.map((l) => toLoanView(ctx, l, viewer))) };
   },
 });

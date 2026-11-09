@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v, type Validator } from "convex/values";
-import { CATEGORIES, CONDITIONS, EVENT_TYPES, LOAN_STATUSES, LOG_KINDS } from "./lib/validation";
+import { CONDITIONS, EVENT_TYPES, LOAN_STATUSES, LOG_KINDS } from "./lib/validation";
 
 const literals = <T extends readonly [string, string, ...string[]]>(arr: T) =>
   // v.union requires a non-empty tuple type; arr is non-empty by T's constraint, so the cast only
@@ -9,7 +9,6 @@ const literals = <T extends readonly [string, string, ...string[]]>(arr: T) =>
     ...(arr.map((x) => v.literal(x)) as unknown as [Validator<string>, Validator<string>, ...Validator<string>[]]),
   ) as unknown as Validator<T[number], "required">;
 
-export const categoryValidator = literals(CATEGORIES);
 export const conditionValidator = literals(CONDITIONS);
 export const loanStatusValidator = literals(LOAN_STATUSES);
 export const eventTypeValidator = literals(EVENT_TYPES);
@@ -26,18 +25,33 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_clerkId", ["clerkId"])
-    .index("by_email", ["email"]),
+    .index("by_email", ["email"])
+    .index("by_name", ["name"]),
 
   tools: defineTable({
     ownerId: v.id("users"),
     name: v.string(),
-    category: categoryValidator,
+    category: v.string(),
     condition: conditionValidator,
     description: v.string(),
     createdAt: v.number(),
   })
     .index("by_owner", ["ownerId"])
-    .index("by_category", ["category"]),
+    .index("by_category", ["category"])
+    .index("by_name", ["name"])
+    .index("by_category_name", ["category", "name"])
+    .searchIndex("search_name", { searchField: "name", filterFields: ["category"] }),
+
+  categories: defineTable({
+    slug: v.string(),
+    label: v.string(),
+    icon: v.string(),
+    active: v.boolean(),
+    order: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_order", ["order"]),
 
   loans: defineTable({
     toolId: v.id("tools"),
@@ -57,6 +71,7 @@ export default defineSchema({
     .index("by_tool", ["toolId"])
     .index("by_borrower", ["borrowerId"])
     .index("by_lender", ["lenderId"])
+    .index("by_lender_status", ["lenderId", "status"])
     .index("by_status", ["status"])
     .index("by_tool_status", ["toolId", "status"]),
 

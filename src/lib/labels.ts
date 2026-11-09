@@ -1,15 +1,4 @@
-import type { Category, Condition, LoanStatus } from "@convex/lib/validation";
-
-export const CATEGORY_LABELS: Record<Category, string> = {
-  power_tools: "Power tools",
-  hand_tools: "Hand tools",
-  garden: "Garden",
-  kitchen: "Kitchen",
-  camping: "Camping",
-  cleaning: "Cleaning",
-  automotive: "Automotive",
-  other: "Other",
-};
+import type { Condition, LoanStatus } from "@convex/lib/validation";
 
 export const CONDITION_LABELS: Record<Condition, string> = {
   new: "New",

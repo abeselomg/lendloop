@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
-import { makeT, signIn } from "./test.setup";
+import { FIRST_PAGE, makeT, signIn } from "./test.setup";
 import { computeSignature, signedHeaders, SIGNATURE_HEADER, TIMESTAMP_HEADER } from "./lib/signature";
 
 const SECRET = "n8n-secret-value";
@@ -158,7 +158,7 @@ describe("n8n http endpoints", () => {
     });
     expect(await res.json()).toEqual({ ok: true, created: true });
     const admin = await signIn(t, "admin");
-    const { errors } = await admin.query(api.automation.queries.listFailures, {});
+    const { page: errors } = await admin.query(api.automation.queries.workflowErrors, { paginationOpts: FIRST_PAGE });
     expect(errors).toHaveLength(1);
     expect(errors[0].message).toBe("Loan events: boom");
   });

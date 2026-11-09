@@ -1,3 +1,4 @@
+import { internal } from "./_generated/api";
 import { internalMutation } from "./_generated/server";
 
 const TOOLS = [
@@ -14,6 +15,7 @@ const TOOLS = [
 export const demo = internalMutation({
   args: {},
   handler: async (ctx) => {
+    await ctx.runMutation(internal.categories.internal.seedDefaults, {});
     const user = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", "seed:demo"))

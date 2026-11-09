@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, internal } from "../_generated/api";
-import { makeT, signIn } from "../test.setup";
+import { FIRST_PAGE, makeT, signIn } from "../test.setup";
 import type { Id } from "../_generated/dataModel";
 import { verifySignature } from "../lib/signature";
 import { BACKOFF_MS, MAX_ATTEMPTS } from "./outbox";
@@ -168,17 +168,21 @@ describe("automation outbox", () => {
         createdAt: Date.now(),
       }),
     );
-    await expect(alice.query(api.automation.queries.listFailures, {})).rejects.toThrow("Admin only");
+    const opts = { paginationOpts: FIRST_PAGE };
+    await expect(alice.query(api.automation.queries.failedEvents, opts)).rejects.toThrow("Admin only");
+    await expect(alice.query(api.automation.queries.workflowErrors, opts)).rejects.toThrow("Admin only");
     const admin = await signIn(t, "admin");
-    const res = await admin.query(api.automation.queries.listFailures, {});
-    expect(res.events).toHaveLength(1);
-    expect(res.events[0]).toMatchObject({
+    const events = (await admin.query(api.automation.queries.failedEvents, opts)).page;
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
       type: "loan.requested",
       toolName: "Cordless Drill",
       attempts: MAX_ATTEMPTS,
       lastError: "Missing environment variable CONVEX_TO_N8N_SECRET",
     });
-    expect(res.errors).toHaveLength(1);
-    expect(res.errors[0].message).toBe("node exploded");
+    const errors = await admin.query(api.automation.queries.workflowErrors, opts);
+    expect(errors.isDone).toBe(true);
+    expect(errors.page).toHaveLength(1);
+    expect(errors.page[0].message).toBe("node exploded");
   });
 });

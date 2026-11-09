@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../_generated/api";
-import { makeT, signIn } from "../test.setup";
+import { FIRST_PAGE, makeT, signIn } from "../test.setup";
 import { todayUtc } from "../lib/validation";
 
 const base = { name: "Cordless Drill", category: "power_tools" as const, condition: "good" as const, description: "18V" };
 
 const addDays = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+const P = { paginationOpts: FIRST_PAGE };
 
 async function setup() {
   const t = makeT();
@@ -170,7 +171,7 @@ describe("loans", () => {
     await bob.mutation(api.tools.mutations.remove, { toolId });
     expect((await t.run((ctx) => ctx.db.get(loanId)))?.status).toBe("declined");
     expect((await events(t)).some((e) => e.type === "loan.declined")).toBe(true);
-    const mine = await alice.query(api.loans.queries.mine, {});
+    const mine = (await alice.query(api.loans.queries.mine, P)).page;
     expect(mine[0].toolName).toBe("Cordless Drill");
     expect(mine[0].toolExists).toBe(false);
     await expect(alice.mutation(api.loans.mutations.request, { toolId, startDate: addDays(1), endDate: addDays(2) })).rejects.toThrow(
@@ -184,17 +185,21 @@ describe("loans", () => {
     const a = await alice.mutation(api.loans.mutations.request, { toolId, startDate: addDays(1), endDate: addDays(2) });
     const b = await alice.mutation(api.loans.mutations.request, { toolId, startDate: addDays(3), endDate: addDays(4) });
     await bob.mutation(api.loans.mutations.approve, { loanId: a });
-    const mine = await alice.query(api.loans.queries.mine, {});
+    const mine = (await alice.query(api.loans.queries.mine, P)).page;
     expect(mine.map((l) => l._id)).toEqual([b, a]);
     expect(mine[0].viewerRole).toBe("borrower");
     expect(mine[0].lender.firstName).toBe("Bob");
-    expect(await bob.query(api.loans.queries.mine, {})).toHaveLength(0);
-    const inc = await bob.query(api.loans.queries.incoming, {});
-    expect(inc.map((l) => l._id)).toEqual([b, a]);
-    expect(inc[0].viewerRole).toBe("lender");
-    expect(await alice.query(api.loans.queries.incoming, {})).toHaveLength(0);
-    await expect(alice.query(api.loans.queries.all, {})).rejects.toThrow("Admin only");
-    const all = await admin.query(api.loans.queries.all, {});
+    expect((await bob.query(api.loans.queries.mine, P)).page).toHaveLength(0);
+    const pending = (await bob.query(api.loans.queries.incoming, { ...P, group: "pending" })).page;
+    expect(pending.map((l) => l._id)).toEqual([b]);
+    expect(pending[0].viewerRole).toBe("lender");
+    const active = (await bob.query(api.loans.queries.incoming, { ...P, group: "active" })).page;
+    expect(active.map((l) => l._id)).toEqual([a]);
+    for (const group of ["pending", "active", "history"] as const) {
+      expect((await alice.query(api.loans.queries.incoming, { ...P, group })).page).toHaveLength(0);
+    }
+    await expect(alice.query(api.loans.queries.all, P)).rejects.toThrow("Admin only");
+    const all = (await admin.query(api.loans.queries.all, P)).page;
     expect(all).toHaveLength(2);
     expect(all[0].viewerRole).toBe("admin");
     expect(all[0].activity).toEqual([]);
@@ -223,8 +228,8 @@ describe("loans", () => {
     const loanId = await alice.mutation(api.loans.mutations.request, { toolId, startDate: addDays(1), endDate: addDays(2) });
     await bob.mutation(api.loans.mutations.approve, { loanId });
     await bob.mutation(api.tools.mutations.remove, { toolId });
-    const inc = await bob.query(api.loans.queries.incoming, {});
-    const mine = await alice.query(api.loans.queries.mine, {});
+    const inc = (await bob.query(api.loans.queries.incoming, { ...P, group: "active" })).page;
+    const mine = (await alice.query(api.loans.queries.mine, P)).page;
     for (const l of [inc[0], mine[0]]) {
       expect(l._id).toBe(loanId);
       expect(l.status).toBe("approved");
@@ -232,7 +237,7 @@ describe("loans", () => {
       expect(l.toolExists).toBe(false);
     }
     await bob.mutation(api.loans.mutations.markReturned, { loanId });
-    expect((await bob.query(api.loans.queries.incoming, {}))[0].status).toBe("returned");
+    expect((await bob.query(api.loans.queries.incoming, { ...P, group: "history" })).page[0].status).toBe("returned");
   });
 
   it("removing a tool declines every pending request with one event per borrower", async () => {
@@ -250,5 +255,29 @@ describe("loans", () => {
       expect(match).toHaveLength(1);
       expect(match[0].recipientUserId).toBe(l!.borrowerId);
     }
+  });
+
+  it("incoming groups split pending/active/history and paginate; status filter on all", async () => {
+    const { t, alice, bob, toolId } = await setup();
+    const admin = await signIn(t, "admin");
+    const a = await alice.mutation(api.loans.mutations.request, { toolId, startDate: addDays(1), endDate: addDays(2) });
+    const b = await alice.mutation(api.loans.mutations.request, { toolId, startDate: addDays(3), endDate: addDays(4) });
+    const c = await alice.mutation(api.loans.mutations.request, { toolId, startDate: addDays(5), endDate: addDays(6) });
+    await bob.mutation(api.loans.mutations.approve, { loanId: a });
+    await bob.mutation(api.loans.mutations.decline, { loanId: b });
+    const ids = async (group: "pending" | "active" | "history") =>
+      (await bob.query(api.loans.queries.incoming, { ...P, group })).page.map((l) => l._id);
+    expect(await ids("pending")).toEqual([c]);
+    expect(await ids("active")).toEqual([a]);
+    expect(await ids("history")).toEqual([b]);
+    await bob.mutation(api.loans.mutations.markReturned, { loanId: a });
+    expect(new Set(await ids("history"))).toEqual(new Set([a, b]));
+    const first = await alice.query(api.loans.queries.mine, { paginationOpts: { numItems: 2, cursor: null } });
+    expect(first.page.map((l) => l._id)).toEqual([c, b]);
+    expect(first.isDone).toBe(false);
+    const rest = await alice.query(api.loans.queries.mine, { paginationOpts: { numItems: 2, cursor: first.continueCursor } });
+    expect(rest.page.map((l) => l._id)).toEqual([a]);
+    const declined = await admin.query(api.loans.queries.all, { ...P, status: "declined" });
+    expect(declined.page.map((l) => l._id)).toEqual([b]);
   });
 });

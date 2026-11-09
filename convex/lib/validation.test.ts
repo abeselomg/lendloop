@@ -7,6 +7,9 @@ import {
   todayUtc,
   validateDateRange,
   validateToolInput,
+  slugifyCategory,
+  validateCategoryLabel,
+  DEFAULT_CATEGORIES,
 } from "./validation";
 
 const okTool = { name: "Drill", category: "power_tools", condition: "good", description: "Cordless" };
@@ -42,7 +45,7 @@ describe("validation", () => {
     expect(validateToolInput({ ...okTool, name: " A " })).toEqual(expect.any(String));
     expect(validateToolInput({ ...okTool, description: "x".repeat(301) })).toEqual(expect.any(String));
     expect(validateToolInput({ ...okTool, description: "x".repeat(300) })).toBeNull();
-    expect(validateToolInput({ ...okTool, category: "bogus" })).toEqual(expect.any(String));
+    expect(validateToolInput({ ...okTool, category: " " })).toEqual(expect.any(String));
     expect(validateToolInput({ ...okTool, condition: "bogus" })).toEqual(expect.any(String));
   });
 });
@@ -58,5 +61,20 @@ describe("displayFirstName", () => {
   });
   it("keeps the local part when stripping the tag would leave nothing", () => {
     expect(displayFirstName({ email: "+x@e.test" })).toBe("+x");
+  });
+
+  it("slugifyCategory lowercases and collapses non-alphanumerics to _", () => {
+    expect(slugifyCategory("  Power Tools! ")).toBe("power_tools");
+    expect(slugifyCategory("Caf\u00e9 & Bar")).toBe("caf_bar");
+    expect(slugifyCategory("!!!")).toBe("");
+  });
+  it("validateCategoryLabel enforces 2-30 chars and a usable slug", () => {
+    expect(validateCategoryLabel("Toys")).toBeNull();
+    expect(validateCategoryLabel("A")).toEqual(expect.any(String));
+    expect(validateCategoryLabel("x".repeat(31))).toEqual(expect.any(String));
+    expect(validateCategoryLabel("!!")).toEqual(expect.any(String));
+  });
+  it("DEFAULT_CATEGORIES slugs match their slugified labels", () => {
+    for (const c of DEFAULT_CATEGORIES) expect(slugifyCategory(c.label)).toBe(c.slug);
   });
 });

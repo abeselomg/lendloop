@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../_generated/api";
-import { identities, makeT, signIn } from "../test.setup";
+import { FIRST_PAGE, identities, makeT, signIn } from "../test.setup";
 
 describe("users", () => {
   beforeEach(() => {
@@ -63,7 +63,7 @@ describe("users", () => {
     await expect(
       alice.mutation(api.users.mutations.setTrustedLender, { userId: bobMe!._id, trusted: true }),
     ).rejects.toThrow("Admin only");
-    await expect(alice.query(api.users.queries.listAll, {})).rejects.toThrow("Admin only");
+    await expect(alice.query(api.users.queries.listAll, { paginationOpts: FIRST_PAGE })).rejects.toThrow("Admin only");
   });
 
   it("setTrustedLender works for admin and listAll shows it", async () => {
@@ -72,7 +72,7 @@ describe("users", () => {
     const bob = await signIn(t, "bob");
     const bobMe = await bob.query(api.users.queries.me, {});
     await admin.mutation(api.users.mutations.setTrustedLender, { userId: bobMe!._id, trusted: true });
-    const all = await admin.query(api.users.queries.listAll, {});
+    const all = (await admin.query(api.users.queries.listAll, { paginationOpts: FIRST_PAGE })).page;
     expect(all).toHaveLength(2);
     expect(all.find((u) => u.email === "bob@example.com")?.trustedLender).toBe(true);
   });
