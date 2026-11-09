@@ -455,9 +455,6 @@ credential referenced by id and name only. `.env*` and `n8n/.env` are gitignored
 names only. A test (`n8n/workflows.test.ts`) asserts the exported workflow JSON has no secret-looking values.
 Why: the assignment calls this out, and workflow exports are the usual place secrets leak.
 
-**Idempotent write-backs.** Every n8n to Convex write goes through the `automationLog` idempotency ledger (keys in
-the contract table), so retries cannot duplicate records or reminder counters. Why: n8n and the network will retry.
-
 **Unauthenticated traffic cannot flood the error workflow.** A request to the n8n webhook with a bad or stale
 signature gets `401` and the execution ends without raising an error. Why: otherwise anyone who finds the URL
 could fill the admin error panel.
@@ -480,18 +477,14 @@ user names up to 50, strict ISO dates with the start not in the past or after th
 
 ## Reliability and idempotency
 
-**Convex to n8n (outbox).** A status change and its `automationEvents` row commit together, and `deliverEvent` is
-scheduled in that same transaction, so a committed change always has a delivery attempt. On a non-2xx or network
-error the event is rescheduled with backoff of 30 s, 2 min, 10 min and 30 min; after the 5th failed attempt it is
-marked `failed` and a `webhook_failed` row appears on the loan timeline and in the admin automation panel. Success
-logs `webhook_delivered`. An event whose loan or recipient has vanished fails terminally with a clear message, and
-status guards mean a late or duplicate run cannot move an event through the same transition twice.
+**Convex to n8n (outbox).** A loan status change, its `automationEvents` row and the scheduled `deliverEvent` commit
+in one transaction, so every committed change gets a delivery attempt. A non-2xx or network error reschedules it
+after 30 s, 2 min, 10 min and 30 min; after the 5th failure the event is `failed` and a `webhook_failed` row shows on
+the loan and in the admin console. Status guards stop a late or duplicate run from repeating a transition.
 
-**n8n side.** The webhook acks `202` right after signature verification, so Convex's retry only covers "n8n did
-not accept this" (a bad or stale signature also gets `401`, which Convex retries and eventually flags). HTTP
-Request nodes (Resend, write-backs) retry 3 times, 2 seconds apart. Outcomes are distinguished on purpose
-(these paths are covered by unit/contract tests but not yet exercised against a live n8n or Resend; see
-[Known limitations](#known-limitations-and-verification-status)):
+**n8n side.** The webhook answers `202` right after checking the signature, so Convex retries only when n8n did not
+accept the event (including a `401`). HTTP Request nodes (Resend and the write-backs to Convex) retry 3 times,
+2 seconds apart, and each outcome is recorded:
 
 | Resend result | Recorded on the loan | Error workflow |
 | --- | --- | --- |
@@ -500,18 +493,18 @@ Request nodes (Resend, write-backs) retry 3 times, 2 seconds apart. Outcomes are
 | 5xx or 429 | `notification_failed` row is written first | yes, a "Raise on severe" node then throws |
 | Network error or write-back failure after retries | nothing (the write-back is what failed) | yes |
 
-The error workflow posts to `/n8n/automation-errors`, so failed executions appear in the admin UI
-(`workflow_error`) instead of only inside n8n.
+The error workflow posts to `/n8n/automation-errors`, so failed runs also show in the admin console as
+`workflow_error`. The mock path has run against the live n8n; the Resend rows have not (see
+[Known limitations](#known-limitations-and-verification-status)).
 
-**Idempotency summary.** Event id (`notif:<eventId>`), loan plus UTC day (`reminder:<loanId>:<date>`), and execution
-id (`n8nerr:<executionId>`) are the keys. The reminder counter and `lastReminderAt` change only on the first `sent`
-insert; `GET /n8n/overdue-loans` excludes loans already reminded today, so a re-run of the schedule is a no-op.
+**Retries never duplicate.** Every write-back goes through the `automationLog` idempotency ledger, keyed as in the
+[contract table](#convex-to-n8n-contract): a replay returns `created: false` and changes nothing, and the reminder
+counter moves only on the first `sent`. `GET /n8n/overdue-loans` skips loans already reminded today, so re-running
+the schedule sends nothing new. Emails carry the same key in Resend's `Idempotency-Key` header (honored for
+24 hours). n8n keeps no state, so in mock mode a redelivered event can be logged twice, which is harmless.
 
-Convex-side rows are deduplicated by `notif:<eventId>` / `reminder:<loanId>:<date>`. Email sends are deduplicated by
-Resend's `Idempotency-Key` header (set to the same eventId / reminderKey, honored by Resend for 24 hours). The n8n
-workflow itself does not keep state, so in mock mode a redelivered event may log twice (harmless).
-
-Nothing fails silently: every failure path ends in an `automationLog` row.
+**Known gap.** Convex runs a scheduled action at most once. If `deliverEvent` dies mid-run, its event stays `pending`
+with no log row. A cron that re-queues events whose `nextAttemptAt` is long past would close this.
 
 ## Testing
 
