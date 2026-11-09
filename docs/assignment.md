@@ -1,8 +1,5 @@
 # Take-home assignment (Step 1 of the process)
 
-Transcribed verbatim from the assignment screenshots so the requirements can be
-checked against the implementation.
-
 Please complete a take-home assignment. You are allowed to use LLMs to write
 code. To ensure that your work will not be used at Fluence, we've made it
 unrelated to healthcare:
