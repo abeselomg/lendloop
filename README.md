@@ -48,7 +48,7 @@ Where the two differ, this README describes what the code does.
 8. [Testing](#testing)
 9. [Deployment](#deployment)
 10. [Production note](#production-note)
-11. [Assignment checklist](#assignment-checklist)
+11. [Known limitations](#known-limitations-and-verification-status)
 
 ## Stack
 
@@ -575,41 +575,7 @@ The live demo is fine for a review, not for real neighbors. What I would change,
 6. **CI/CD.** There is no pipeline yet. Run `npm test`, `lint`, `typecheck` and `build` on every push, deploy Convex
    and both Railway services from that pipeline, and check that `n8n/workflows/` matches what n8n is running.
 
-## Assignment checklist
-
-Source: [`docs/assignment.md`](docs/assignment.md).
-
-✅ = implemented and covered by unit/contract tests. n8n and Convex were exercised end to end, and the browser flow was walked through with real Clerk sign-in; Resend delivery has not been; see Known limitations.
-
-| Requirement | Where | Status |
-| --- | --- | --- |
-| Company name LendLoop, tagline | `src/app/page.tsx` | ✅ |
-| Public read-only list, name and category only, from Convex | `src/components/PublicToolList.tsx`, `convex/tools/queries.ts` (`listPublic`) | ✅ |
-| "Sign in to lend or borrow" button wired to Clerk | `src/app/page.tsx` (`SignInButton`) | ✅ |
-| Signed-in users can list a tool (name, category, condition, description) | `/listings/new`, `convex/tools/mutations.ts` (`create`) | ✅ |
-| Request to borrow for a date range | `src/components/RequestDialog.tsx`, `convex/loans/mutations.ts` (`request`) | ✅ |
-| Approve or decline requests on own tools | `/incoming`, `convex/loans/mutations.ts` (`approve`, `decline`) | ✅ |
-| Mark a loan as returned | `/incoming`, `convex/loans/mutations.ts` (`markReturned`) | ✅ |
-| All tools with availability, filter by category | `/browse`, `convex/tools/queries.ts` (`list`) | ✅ |
-| "My listings", "My requests", "Incoming requests" views | `/listings`, `/requests`, `/incoming` | ✅ |
-| Nice, minimal layout | `src/app`, `src/components` | ✅ |
-| Roles: admin removes any listing, views all loans, marks Trusted Lender | `/admin`, `convex/tools/mutations.ts` (`remove`), `convex/loans/queries.ts` (`all`), `convex/users/mutations.ts` (`setTrustedLender`) | ✅ |
-| Beyond the brief: admins manage roles and names; users stay in sync with Clerk | Users tab, `convex/users/mutations.ts` (`setRole`), `convex/users/actions.ts`, `/clerk/webhook` in `convex/http.ts` | ✅ |
-| User edits/deletes only own listings; acts only on own requests | `convex/tools/mutations.ts`, `convex/loans/mutations.ts` | ✅ |
-| RBAC enforced in Convex functions, not only the UI | `convex/lib/access.ts`, RBAC tests | ✅ |
-| Workflow 1: notify on create or status change via Convex-called webhook, minimal fields | `n8n/workflows/loan-notification.json`, `convex/automation/` (`outbox.ts`, `actions.ts`, `internal.ts`) | ✅ |
-| Workflow 2: daily overdue reminders from a Convex HTTP endpoint, write status back | `n8n/workflows/overdue-reminders.json`, `convex/http.ts`, `convex/n8n/internal.ts` | ✅ |
-| HMAC-signed payloads, verified on the receiving side (both directions) | `convex/lib/signature.ts`, Code nodes in the workflows | ✅ |
-| Secrets in env vars and n8n credentials, not in code or exported JSON | `.env.example`, `n8n/.env.example`, `n8n/docker-compose.yml`, workflow JSON test | ✅ |
-| Idempotent write-backs | `convex/n8n/internal.ts`, `automationLog.idempotencyKey` | ✅ |
-| Retries and an error workflow; failures visible | Outbox backoff in `convex/automation/outbox.ts`, `n8n/workflows/error-handler.json`, `/admin` | ✅ |
-| Bonus: recent automation activity on each loan | `src/components/ActivityList.tsx` in `LoanCard`, on `/requests`, `/incoming`, `/admin` | ✅ |
-| GitHub repo with app source | this repository | ✅ |
-| Exported n8n workflow JSON in the repo | `n8n/workflows/*.json` | ✅ |
-| README: local setup incl. n8n/docker-compose, env vars, architecture, security and data minimization | this file, `n8n/docker-compose.yml` | ✅ |
-| Production note | [Production note](#production-note) | ✅ |
-
-### Known limitations and verification status
+## Known limitations and verification status
 
 Verified automatically: `npm test` (169 tests), `npm run lint`, `npm run typecheck` and `npm run build` all pass.
 The n8n workflow JSON is tested structurally and its Code nodes are tested against the signature contract.
