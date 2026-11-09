@@ -184,10 +184,14 @@ describe("severe flag is carried forward (no reaching back to unexecuted nodes)"
     const executed: Record<string, Record<string, unknown>> = { [ctxNode]: ctx };
     const mock = await run(code(w, "Mock log"), ctx, executed);
     expect(mock).toMatchObject({ status: "sent", channel: "mock", severe: false });
+    // The mock "email" is visible in the n8n Executions view as this node's output...
+    expect(mock.mockNotification).toEqual({ to: "a@b.c", subject: "S", text: "T" });
     const signed = await run(code(w, "Sign write-back"), mock, executed);
     executed["Sign write-back"] = signed;
     const body = JSON.parse(signed.body);
     expect(body).toMatchObject({ status: "sent", channel: "mock" });
+    // ...but never travels back to Convex.
+    expect(signed.body).not.toContain("a@b.c");
     expect(signed.severe).toBe(false);
     const expected = "v1=" + (await computeSignature("test-secret", Number(signed.timestamp), signed.body));
     expect(signed.signature).toBe(expected);

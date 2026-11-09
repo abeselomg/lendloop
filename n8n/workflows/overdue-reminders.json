@@ -175,7 +175,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const ctx = $('Fan out').item.json;\nconsole.log('[LendLoop mock notification]', JSON.stringify({ to: ctx.to, subject: ctx.subject, text: ctx.text }));\nreturn { json: { status: 'sent', channel: 'mock', severe: false } };"
+        "jsCode": "const ctx = $('Fan out').item.json;\nconsole.log('[LendLoop mock notification]', JSON.stringify({ to: ctx.to, subject: ctx.subject, text: ctx.text }));\n// The message is part of the output so it can be read in the Executions view; Sign write-back sends only status fields to Convex.\nreturn { json: { status: 'sent', channel: 'mock', severe: false, mockNotification: { to: ctx.to, subject: ctx.subject, text: ctx.text } } };"
       },
       "id": "11111111-0000-4000-8000-000000000021",
       "name": "Mock log",

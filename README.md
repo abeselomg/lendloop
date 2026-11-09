@@ -550,7 +550,7 @@ Last verified: 2026-11-09. Unit/contract tests, the n8n 2.46.6 docker-compose an
 
 Known limitations:
 
-- Mock notifications are written with `console.log` in the n8n Code nodes. Verified on 2.46.6: they do **not** appear in `docker compose logs n8n` (task-runner output is not forwarded; only runtime errors are). Look in the n8n **Executions** view.
+- Mock notifications do **not** appear in `docker compose logs n8n` or Railway logs (task-runner `console.log` output is not forwarded; verified on 2.46.6). To read one, open the run in n8n **Executions** and click the **Mock log** node: its output has `mockNotification` with `to`, `subject` and `text`. Only status fields are written back to Convex.
 - An error workflow must be published or n8n refuses to run it (`npm run n8n:import` publishes it).
 - Overlapping pending requests are allowed on purpose; only approved loans block days on the calendar.
 - Seeded tools belong to a user who cannot sign in, so their requests stay pending.

@@ -28,8 +28,10 @@ The container port is bound to 127.0.0.1 only; expose it through a tunnel/revers
    `http://host.docker.internal:5678/webhook/lendloop-loan-event` only if Convex itself runs inside Docker, or your
    public URL for Convex Cloud), and the two secrets.
 
-Set `LENDLOOP_EMAIL_ENABLED=false` (the default) to run fully offline: each "email" is logged as
-`[LendLoop mock notification] {...}` visible in the n8n Executions view (verified on 2.46.6: they do not appear in `docker compose logs`).
+Set `LENDLOOP_EMAIL_ENABLED=false` (the default) to run fully offline: no email is sent. To read a mock "email", open
+the run in n8n **Executions** and click the **Mock log** node; its output has `mockNotification` with `to`, `subject`
+and `text` (Convex only receives the status). The node also `console.log`s it, but that output is not forwarded to
+`docker compose logs` or Railway logs (verified on 2.46.6).
 With `true`, emails go through Resend; a 4xx from Resend falls back to a mock log and is recorded as `failed`, a 5xx or 429
 is recorded the same way (`failed`, channel `mock`, so it shows on the loan timeline). After that row is written, the
 "Raise on severe" node throws so the error workflow also reports it. Convex retries only when n8n fails to accept the
