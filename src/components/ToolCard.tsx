@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Link from "next/link";
 import type { ToolView } from "@convex/lib/views";
 import { CONDITION_LABELS } from "@/lib/labels";
 import { CategoryIcon } from "@/components/CategoryIcon";
@@ -35,6 +36,18 @@ export function ToolCard({
             <Availability onLoan={tool.onLoan} />
           </div>
           <p className="mt-0.5 text-sm text-muted">{details}</p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted">
+            {tool.owner.isMe ? (
+              "Your listing"
+            ) : (
+              <>
+                <span className="truncate">
+                  Lent by <span className="font-medium text-ink">{tool.owner.firstName}</span>
+                </span>
+                {tool.owner.trustedLender ? <TrustedMark /> : null}
+              </>
+            )}
+          </p>
         </div>
       </div>
 
@@ -46,28 +59,25 @@ export function ToolCard({
         </p>
       ) : null}
 
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-        {manage ? (
-          <div className="ml-auto flex items-center gap-2">{manage}</div>
-        ) : (
-          <>
-            <p className="min-w-0 text-sm text-muted">
-              Lent by <span className="font-medium text-ink">{tool.owner.firstName}</span>
-              {tool.owner.trustedLender ? <TrustedMark /> : null}
-            </p>
-            {onRequest ? (
-              <button
-                type="button"
-                onClick={onRequest}
-                className="rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-accent-ink transition-opacity hover:opacity-90"
-              >
-                Request to borrow
-              </button>
-            ) : tool.owner.isMe ? (
-              <span className="text-sm text-muted">Your listing</span>
-            ) : null}
-          </>
-        )}
+      {/* Same footer on every card: one row, actions on the right. */}
+      <div className="mt-5 flex min-h-9 items-center justify-end gap-2 border-t border-line pt-4">
+        {manage ??
+          (onRequest ? (
+            <button
+              type="button"
+              onClick={onRequest}
+              className="rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-accent-ink transition-opacity hover:opacity-90"
+            >
+              Request to borrow
+            </button>
+          ) : tool.owner.isMe ? (
+            <Link
+              href={`/listings/${tool._id}/edit`}
+              className="rounded-full border border-line px-4 py-1.5 text-sm font-medium text-ink hover:border-accent/50"
+            >
+              Edit listing
+            </Link>
+          ) : null)}
       </div>
     </article>
   );

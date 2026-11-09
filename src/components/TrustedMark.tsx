@@ -5,7 +5,7 @@ export function TrustedMark() {
       tabIndex={0}
       role="img"
       aria-label="Trusted lender"
-      className="group relative ml-1.5 inline-flex align-middle text-accent outline-none focus-visible:rounded focus-visible:ring-2 focus-visible:ring-accent"
+      className="group relative inline-flex shrink-0 align-middle text-accent outline-none focus-visible:rounded focus-visible:ring-2 focus-visible:ring-accent"
     >
       <svg viewBox="0 0 16 16" aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
         <path d="M8 1.5 2.5 3.8v3.7c0 3.2 2.3 5.8 5.5 7 3.2-1.2 5.5-3.8 5.5-7V3.8z" />

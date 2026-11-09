@@ -27,13 +27,13 @@ function ToolCardSkeleton() {
             <Bone className="h-4 w-16" />
           </div>
           <Bone className="mt-2 h-4 w-3/5" />
+          <Bone className="mt-1.5 h-4 w-2/5" />
         </div>
       </div>
       <Bone className="mt-5 h-4 w-full" />
       <Bone className="mt-2 h-4 w-3/4" />
-      <div className="mt-5 flex items-center justify-between gap-3 border-t border-line pt-4">
-        <Bone className="h-4 w-28" />
-        <Bone className="h-8 w-32 rounded-full" />
+      <div className="mt-5 flex items-center justify-end gap-3 border-t border-line pt-4">
+        <Bone className="h-8 w-36 rounded-full" />
       </div>
     </div>
   );
