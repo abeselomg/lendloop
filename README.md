@@ -19,18 +19,31 @@ Where the two differ, this README describes what the code does.
 
 ![Admin console: loans, listings, neighbors and automation failures](docs/screenshots/admin.png)
 
+## Live demo
+
+**<https://web-production-594f5.up.railway.app>**
+
+- Sign up with any address of the form `yourname+clerk_test@example.com` and enter the verification code
+  **424242** (a Clerk test address; no real email is sent; choose any password if asked). Make two accounts, in two browsers or a private window,
+  to play lender and borrower.
+- The board is seeded with demo tools and a few loans between two test neighbors, Alice and Bob.
+- Notifications run in mock mode: each one is logged by n8n and shows on the loan ("Request mock notification sent").
+- Hosting: the Next.js app and n8n (with Postgres) on Railway, the backend on Convex Cloud, auth on a Clerk
+  development instance. Details in [Deployment](#deployment).
+
 ## Contents
 
-1. [Stack](#stack)
-2. [Architecture](#architecture)
-3. [Local setup](#local-setup)
-4. [Using the app](#using-the-app)
-5. [Security and data-minimization decisions](#security-and-data-minimization-decisions)
-6. [Reliability and idempotency](#reliability-and-idempotency)
-7. [Testing](#testing)
-8. [Deployment](#deployment)
-9. [Production note](#production-note)
-10. [Assignment checklist](#assignment-checklist)
+1. [Live demo](#live-demo)
+2. [Stack](#stack)
+3. [Architecture](#architecture)
+4. [Local setup](#local-setup)
+5. [Using the app](#using-the-app)
+6. [Security and data-minimization decisions](#security-and-data-minimization-decisions)
+7. [Reliability and idempotency](#reliability-and-idempotency)
+8. [Testing](#testing)
+9. [Deployment](#deployment)
+10. [Production note](#production-note)
+11. [Assignment checklist](#assignment-checklist)
 
 ## Stack
 
@@ -429,15 +442,19 @@ npm run build
 
 ## Deployment
 
-- **Next.js on Vercel.** Environment: `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`,
-  `CLERK_SECRET_KEY`.
-- **Convex Cloud.** `npx convex login`, then `npx convex deploy` for a production deployment. Set the Convex
-  environment variables listed above on that deployment with `npx convex env set`, using your Railway n8n URL for
-  `N8N_LOAN_EVENT_WEBHOOK_URL` and your Vercel URL for `APP_URL`.
-- **n8n on Railway.** Step-by-step in [`n8n/railway/README.md`](n8n/railway/README.md): image, Postgres, persisted
-  `N8N_ENCRYPTION_KEY`, env vars, workflow import, credential, activation. Its `LENDLOOP_CONVEX_SITE_URL` is the
-  production `https://<name>.convex.site`.
-- **Clerk.** A dev instance is fine for a demo; a production instance is in the production note.
+The live demo runs like this:
+
+| Piece | Where | Notes |
+| --- | --- | --- |
+| Next.js app | Railway service built from this repo (Railpack) | `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`; Next binds Railway's `PORT` |
+| n8n | Railway service built from [`n8n/railway/Dockerfile`](n8n/railway/Dockerfile) (`RAILWAY_DOCKERFILE_PATH`) | Pinned n8n 2.46.6 with the workflows baked in; imports and publishes them on boot. Step by step in [`n8n/railway/README.md`](n8n/railway/README.md) |
+| n8n database | Railway Postgres | Referenced with `${{Postgres.PGHOST}}` etc. |
+| Backend | Convex Cloud production deployment (`npx convex deploy`) | Env vars as listed above, with the Railway n8n webhook URL in `N8N_LOAN_EVENT_WEBHOOK_URL` and the Railway app URL in `APP_URL` |
+| Auth | Clerk development instance | Fine for a demo; a production instance is in the production note |
+
+Production uses its own signing secrets and n8n encryption key, different from the local ones. Nothing secret is in
+the repo: Railway and Convex hold them as environment variables. The n8n owner account was created right after the
+first deploy so the internet-facing editor could not be claimed by someone else.
 
 ## Production note
 
@@ -469,7 +486,7 @@ What I would change before running this for real:
     today), with an audit trail for role changes.
 12. **Time zones and availability.** Overdue and the 09:00 schedule use UTC days; make them per-neighborhood. Add
     real calendar availability and concurrency-safe handling of overlapping pending requests.
-13. **CI/CD.** Run `npm test`, `lint`, `typecheck` and `build` in CI; deploy Convex and Vercel from one pipeline;
+13. **CI/CD.** Run `npm test`, `lint`, `typecheck` and `build` in CI; deploy Convex and the Railway services from one pipeline;
     export workflows from n8n in CI to detect drift against `n8n/workflows/`; scan for secrets.
 14. **Compliance posture.** Confirm Resend and n8n data-processing terms, document what personal data flows where
     (first name, email, tool name, dates), and add account deletion that also clears automation logs.
@@ -525,7 +542,7 @@ The n8n workflow JSON is tested structurally and its Code nodes are tested again
 
 - Sending through Resend has not been exercised (mock mode only), nor the Resend credential import.
 
-Last verified: 2026-11-08, unit/contract tests, the n8n 2.46.6 docker-compose and Convex local-backend run, and the Clerk browser walkthrough above (Resend delivery and the Resend credential import still pending).
+Last verified: 2026-11-09. Unit/contract tests, the n8n 2.46.6 docker-compose and Convex local-backend run, and the Clerk browser walkthrough above. The live demo was checked the same way: a borrow loop on Convex Cloud delivered all 8 notifications through n8n on Railway and back (`webhook_delivered` and `notification_sent` for each), and a real Clerk sign-in on the Railway app showed the loans with their activity. Resend delivery and the Resend credential import are still pending.
 
 Known limitations:
 
