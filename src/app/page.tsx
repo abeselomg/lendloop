@@ -4,6 +4,7 @@ import { Bricolage_Grotesque } from "next/font/google";
 import { SignInButton, Show } from "@clerk/nextjs";
 import { PublicToolList } from "@/components/PublicToolList";
 import { HeroTag } from "@/components/HeroTag";
+import { Nav } from "@/components/Nav";
 
 const display = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-bricolage" });
 
@@ -23,21 +24,20 @@ const STEPS = [
 export default function Home() {
   return (
     <div className={`${display.variable} flex flex-1 flex-col`}>
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-5">
-        <span className="font-display text-xl font-bold tracking-tight text-accent">LendLoop</span>
-        <Show when="signed-out">
+      {/* Visitors get the marketing header; signed-in neighbours get the same app header as every other page. */}
+      <Show when="signed-out">
+        <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-5">
+          <span className="font-display text-xl font-bold tracking-tight text-accent">LendLoop</span>
           <SignInButton mode="modal">
             <button type="button" className={navLinkClass}>
               Sign in
             </button>
           </SignInButton>
-        </Show>
-        <Show when="signed-in">
-          <Link href="/browse" className={navLinkClass}>
-            Open your board
-          </Link>
-        </Show>
-      </header>
+        </header>
+      </Show>
+      <Show when="signed-in">
+        <Nav wide />
+      </Show>
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-5 pb-20">
         <section className="relative isolate grid items-center gap-14 pb-12 pt-6 md:grid-cols-[1fr_18rem] md:pt-12 lg:gap-20">
@@ -66,7 +66,7 @@ export default function Home() {
               </Show>
               <Show when="signed-in">
                 <Link href="/browse" className={ctaClass}>
-                  Open your board
+                  Browse tools
                 </Link>
               </Show>
             </div>

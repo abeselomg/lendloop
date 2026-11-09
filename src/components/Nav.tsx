@@ -13,7 +13,8 @@ const LINKS = [
   { href: "/incoming", label: "Incoming" },
 ];
 
-export function Nav() {
+/** `wide` matches the homepage's wider column so the logo lines up with its content. */
+export function Nav({ wide = false }: { wide?: boolean }) {
   const pathname = usePathname();
   const me = useQuery(api.users.queries.me);
   const links =
@@ -21,7 +22,7 @@ export function Nav() {
 
   return (
     <header className="border-b border-line bg-bg">
-      <div className="mx-auto flex max-w-5xl items-center gap-4 px-5 py-3">
+      <div className={`mx-auto flex ${wide ? "max-w-6xl" : "max-w-5xl"} items-center gap-4 px-5 py-3`}>
         <Link href="/" className="text-lg font-semibold tracking-tight text-accent">
           LendLoop
         </Link>
