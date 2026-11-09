@@ -11,9 +11,24 @@ import { RequestDialog } from "@/components/RequestDialog";
 import { ToolGridSkeleton } from "@/components/Skeleton";
 import { Pagination } from "@/components/ui/Pagination";
 import { SearchInput } from "@/components/ui/SearchInput";
+import { CategoryIcon } from "@/components/CategoryIcon";
+
+// Icons follow the chip's text colour when selected and use the accent otherwise.
+const chipIcon = (active: boolean) => `size-4 shrink-0 ${active ? "" : "text-accent"}`;
+
+function AllIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinejoin="round">
+      <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" />
+      <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" />
+      <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" />
+      <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
+    </svg>
+  );
+}
 
 function chip(active: boolean) {
-  return `rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
+  return `inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
     active
       ? "border-accent bg-accent text-accent-ink"
       : "border-line bg-surface text-ink hover:border-accent"
@@ -58,6 +73,7 @@ export default function BrowsePage() {
           onClick={() => setCategory(null)}
           className={chip(category === null)}
         >
+          <AllIcon className={chipIcon(category === null)} />
           All
         </button>
         {active.map((c) => (
@@ -68,6 +84,7 @@ export default function BrowsePage() {
             onClick={() => setCategory(c.slug)}
             className={chip(category === c.slug)}
           >
+            <CategoryIcon icon={c.icon} className={chipIcon(category === c.slug)} />
             {c.label}
           </button>
         ))}
