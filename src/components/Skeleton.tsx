@@ -19,15 +19,17 @@ export function SkeletonRegion({ label, children }: { label: string; children: R
 function ToolCardSkeleton() {
   return (
     <div className="flex w-full flex-col rounded-2xl border border-line bg-surface p-5">
-      <div className="flex items-start justify-between gap-3">
-        <Bone className="h-5 w-2/5" />
-        <Bone className="h-5 w-16 rounded-full" />
+      <div className="flex items-start gap-3">
+        <Bone className="size-10 shrink-0 rounded-xl" />
+        <div className="flex-1">
+          <div className="flex justify-between gap-3">
+            <Bone className="h-5 w-2/5" />
+            <Bone className="h-4 w-16" />
+          </div>
+          <Bone className="mt-2 h-4 w-3/5" />
+        </div>
       </div>
-      <div className="mt-3 flex gap-2">
-        <Bone className="h-5 w-20 rounded-full" />
-        <Bone className="h-5 w-24" />
-      </div>
-      <Bone className="mt-4 h-4 w-full" />
+      <Bone className="mt-5 h-4 w-full" />
       <Bone className="mt-2 h-4 w-3/4" />
       <div className="mt-5 flex items-center justify-between gap-3 border-t border-line pt-4">
         <Bone className="h-4 w-28" />
