@@ -20,6 +20,13 @@ export const request = mutation({
     if (err) throw new ConvexError(err);
     const cleanNote = note?.trim();
     if (cleanNote && cleanNote.length > MAX_NOTE) throw new ConvexError("Note is too long");
+    const approved = await ctx.db
+      .query("loans")
+      .withIndex("by_tool_status", (q) => q.eq("toolId", toolId).eq("status", "approved"))
+      .collect();
+    if (approved.some((o) => rangesOverlap(startDate, endDate, o.startDate, o.endDate))) {
+      throw new ConvexError("Those dates are already booked");
+    }
     const now = Date.now();
     const loanId = await ctx.db.insert("loans", {
       toolId,
@@ -36,6 +43,23 @@ export const request = mutation({
     });
     await enqueueLoanEvent(ctx, { loanId, type: "loan.requested", recipientUserId: tool.ownerId });
     return loanId;
+  },
+});
+
+/** Dates a tool is already lent out (approved, not yet ended), for the request calendar. Dates only: no borrower. */
+export const bookedRanges = query({
+  args: { toolId: v.id("tools") },
+  handler: async (ctx, { toolId }) => {
+    await requireUser(ctx);
+    const today = todayUtc();
+    const approved = await ctx.db
+      .query("loans")
+      .withIndex("by_tool_status", (q) => q.eq("toolId", toolId).eq("status", "approved"))
+      .collect();
+    return approved
+      .filter((l) => l.endDate >= today)
+      .sort((a, b) => a.startDate.localeCompare(b.startDate))
+      .map((l) => ({ startDate: l.startDate, endDate: l.endDate }));
   },
 });
 

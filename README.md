@@ -330,9 +330,12 @@ Lender. Admins deliberately **cannot** approve, decline or return other people's
 a matching email gets `role: "admin"`. Removing an email from the list does not demote an existing admin.
 
 **Rules worth knowing.** Dates are ISO `YYYY-MM-DD`, the start must not be in the past (UTC) or after the end, and
-a range is at most 30 days. You cannot borrow your own tool. Overlapping **pending** requests are allowed (the
-lender chooses); approval fails if it overlaps an already **approved** loan on that tool. A borrower can cancel
-while pending, or while approved but not yet started.
+a range is at most 30 days. You cannot borrow your own tool. A request for days that overlap an already
+**approved** loan is rejected (`loans.request`), and approval checks again (`loans.approve`). Overlapping **pending**
+requests are allowed (the lender chooses). Dates are picked on a calendar that crosses out booked days
+(`loans.bookedRanges` returns only the start and end dates of approved loans, never who borrowed), so a tool that is
+on loan can still be requested for free days. A borrower can cancel while pending, or while approved but not yet
+started.
 
 **Demo seed caveat.** `npm run seed` creates a synthetic neighbor "LendLoop Demo" (`clerkId: "seed:demo"`) with
 eight tools so the board is not empty. Nobody can sign in as it, so requests to those tools stay pending forever.
@@ -485,7 +488,8 @@ What I would change before running this for real:
 11. **Admin lifecycle.** Removing an email from `ADMIN_EMAILS` should demote the user on next sign-in (it does not
     today), with an audit trail for role changes.
 12. **Time zones and availability.** Overdue and the 09:00 schedule use UTC days; make them per-neighborhood. Add
-    real calendar availability and concurrency-safe handling of overlapping pending requests.
+    concurrency-safe handling of overlapping pending requests (today the lender picks one and the rest fail at
+    approval).
 13. **CI/CD.** Run `npm test`, `lint`, `typecheck` and `build` in CI; deploy Convex and the Railway services from one pipeline;
     export workflows from n8n in CI to detect drift against `n8n/workflows/`; scan for secrets.
 14. **Compliance posture.** Confirm Resend and n8n data-processing terms, document what personal data flows where
@@ -548,7 +552,8 @@ Known limitations:
 
 - Mock notifications are written with `console.log` in the n8n Code nodes. Verified on 2.46.6: they do **not** appear in `docker compose logs n8n` (task-runner output is not forwarded; only runtime errors are). Look in the n8n **Executions** view.
 - An error workflow must be published or n8n refuses to run it (`npm run n8n:import` publishes it).
-- Overlapping pending requests are allowed on purpose; there is no calendar-grade availability.
+- Overlapping pending requests are allowed on purpose; only approved loans block days on the calendar.
 - Seeded tools belong to a user who cannot sign in, so their requests stay pending.
 - Dates and the reminder schedule use UTC.
-- The public page lists only tools not currently on loan; the signed-in board shows all with a status.
+- The public page lists only tools not currently on loan; the signed-in board shows all with a status, and any
+  tool you don't own can be requested for days that are still free.

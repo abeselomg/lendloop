@@ -97,6 +97,37 @@ describe("loans", () => {
     await bob.mutation(api.loans.approve, { loanId: c });
   });
 
+  it("request rejects dates that overlap an approved loan", async () => {
+    const { alice, bob, toolId } = await setup();
+    const a = await alice.mutation(api.loans.request, { toolId, startDate: addDays(1), endDate: addDays(5) });
+    await bob.mutation(api.loans.approve, { loanId: a });
+    await expect(
+      alice.mutation(api.loans.request, { toolId, startDate: addDays(5), endDate: addDays(7) }),
+    ).rejects.toThrow("Those dates are already booked");
+    await alice.mutation(api.loans.request, { toolId, startDate: addDays(6), endDate: addDays(8) });
+  });
+
+  it("bookedRanges lists only approved loans that have not ended, with dates only", async () => {
+    const { t, alice, bob, toolId } = await setup();
+    const a = await alice.mutation(api.loans.request, { toolId, startDate: addDays(1), endDate: addDays(5) });
+    await bob.mutation(api.loans.approve, { loanId: a });
+    await alice.mutation(api.loans.request, { toolId, startDate: addDays(10), endDate: addDays(12) }); // pending
+    const r = await alice.mutation(api.loans.request, { toolId, startDate: addDays(20), endDate: addDays(21) });
+    await bob.mutation(api.loans.approve, { loanId: r });
+    await bob.mutation(api.loans.markReturned, { loanId: r }); // returned
+    const aliceId = await userId(t, "clerk_alice");
+    const bobId = await userId(t, "clerk_bob");
+    await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        toolId, toolName: "Cordless Drill", borrowerId: aliceId, lenderId: bobId,
+        startDate: addDays(-6), endDate: addDays(-2), status: "approved",
+        createdAt: Date.now(), updatedAt: Date.now(), reminderCount: 0,
+      }),
+    ); // approved but already ended
+    expect(await alice.query(api.loans.bookedRanges, { toolId })).toEqual([{ startDate: addDays(1), endDate: addDays(5) }]);
+    await expect(t.query(api.loans.bookedRanges, { toolId })).rejects.toThrow("Not signed in");
+  });
+
   it("decline/markReturned enforce status transitions", async () => {
     const { t, alice, bob, toolId } = await setup();
     const a = await alice.mutation(api.loans.request, { toolId, startDate: addDays(1), endDate: addDays(2) });

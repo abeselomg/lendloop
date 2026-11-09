@@ -75,7 +75,7 @@ export default function BrowsePage() {
               <li key={t._id} className="flex">
                 <ToolCard
                   tool={t}
-                  onRequest={!t.onLoan && !t.owner.isMe ? () => setRequesting(t) : undefined}
+                  onRequest={!t.owner.isMe ? () => setRequesting(t) : undefined}
                 />
               </li>
             ))}

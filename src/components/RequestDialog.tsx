@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "@convex/_generated/api";
 import { todayUtc, validateDateRange } from "@convex/lib/validation";
 import type { ToolView } from "@convex/lib/views";
+import { DateRangePicker } from "@/components/DateRangePicker";
+import type { DateSelection } from "@/lib/dateSelection";
 
 export function RequestDialog({
   tool,
@@ -35,7 +37,7 @@ export function RequestDialog({
       onClick={(e) => {
         if (e.target === ref.current) onClose();
       }}
-      className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-2xl border border-line bg-surface p-0 text-ink backdrop:bg-black/40"
+      className="m-auto max-h-[calc(100dvh-2rem)] w-[min(28rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-line bg-surface p-0 text-ink backdrop:bg-black/40"
     >
       {tool ? (
         <RequestForm
@@ -59,14 +61,20 @@ function RequestForm({
   onSent?: () => void;
 }) {
   const request = useMutation(api.loans.request);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const booked = useQuery(api.loans.bookedRanges, { toolId: tool._id });
+  const [dates, setDates] = useState<DateSelection>({ start: null, end: null });
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!dates.start) {
+      setError("Pick the days you need it");
+      return;
+    }
+    const startDate = dates.start;
+    const endDate = dates.end ?? dates.start; // start picked but no end: a one-day loan
     const invalid = validateDateRange(startDate, endDate, todayUtc());
     if (invalid) {
       setError(invalid);
@@ -104,30 +112,20 @@ function RequestForm({
           </p>
         ) : null}
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <label className="text-sm font-medium">
-          Start date
-          <input
-            type="date"
-            required
-            min={todayUtc()}
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className={fieldClass}
+      <fieldset>
+        <legend className="text-sm font-medium">Dates</legend>
+        <div className="mt-1">
+          <DateRangePicker
+            today={todayUtc()}
+            booked={booked}
+            value={dates}
+            onChange={(next) => {
+              setDates(next);
+              setError(null);
+            }}
           />
-        </label>
-        <label className="text-sm font-medium">
-          End date
-          <input
-            type="date"
-            required
-            min={startDate || todayUtc()}
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className={fieldClass}
-          />
-        </label>
-      </div>
+        </div>
+      </fieldset>
       <label className="block text-sm font-medium">
         Note (optional)
         <textarea
