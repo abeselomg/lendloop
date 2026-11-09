@@ -561,36 +561,20 @@ first deploy so the internet-facing editor could not be claimed by someone else.
 
 The live demo is fine for a review, not for real neighbors. What I would change, most important first:
 
-1. **Take the n8n editor off the internet.** On Railway the editor is public behind n8n's own login, and anyone
-   signed in can run Code nodes that read the HMAC secrets from `$env`. Expose only `/webhook/*` publicly and reach
-   the editor through a VPN or SSO proxy.
-2. **A Clerk production instance.** Local development and the live demo share one Clerk development instance (test
-   emails, development keys). Production needs its own instance, with its own issuer, keys and webhook secret.
-3. **Real email.** Verify a sending domain in Resend (SPF/DKIM) so mail reaches every neighbor, not only the account
+1. **Real email.** Verify a sending domain in Resend (SPF/DKIM) so mail reaches every neighbor, not only the account
    owner, and add notification preferences and unsubscribe before sending reminders to real people.
-4. **Alerting.** Today a failed delivery or n8n run is only visible to someone who opens `/admin`. Send
-   `webhook_failed` and `workflow_error` to Slack or email (a node in the error workflow, or a Convex cron that counts
-   new failures).
-5. **Outbox sweeper and manual retry.** Each delivery is a scheduled Convex action, and Convex runs scheduled actions
-   at most once, so an action that dies mid-delivery leaves its event `pending` for good. A cron should re-queue
-   events whose `nextAttemptAt` is long past, and the admin console should offer "retry" on `failed` events.
-6. **Rate limits.** Limit the public tool list and request creation per user or IP, and cap open requests per
+2. **Email alerts on failures.** Today a failed delivery or n8n run is only logged (`webhook_failed`,
+   `workflow_error`) and seen by someone who opens `/admin`. Email the admins instead: a Resend node in the error
+   workflow for n8n failures, and the same for events the Convex outbox gives up on.
+3. **Rate limits.** Limit the public tool list and request creation per user or IP, and cap open requests per
    borrower. The signed routes (`/n8n/*`, `/clerk/webhook`, the n8n webhook) reject forgeries cheaply but still
    accept unlimited traffic.
-7. **Secret rotation without downtime.** Each verifier accepts exactly one secret, so rotating means changing both
-   sides at the same moment. Accept the current and previous secret during a rotation window.
-8. **Audit log.** Record who removed a listing, changed Trusted lender, granted or removed admin, or edited a name.
+4. **Audit log.** Record who removed a listing, changed Trusted lender, granted or removed admin, or edited a name.
    None of these leave a trace today.
-9. **Retention and deletion.** Purge old `automationLog` rows and delivered `automationEvents`, and keep n8n
-   executions (which contain recipient emails) for days rather than n8n's default two weeks. When a Clerk account
-   is deleted, LendLoop already replaces the name and removes the tools; it should also clear the email.
-10. **Dates in the user's time zone.** "Today", overdue and the 09:00 reminder are UTC, so near midnight a user can
-    be told a start date is in the past, and reminders arrive at odd local hours.
-11. **Decline overlapping requests on approval.** When a lender approves one request, other pending requests for the
-    same days stay pending until the lender tries to approve one and gets an error. Decline them automatically, with
-    the normal notification.
-12. **CI/CD.** There is no pipeline yet. Run `npm test`, `lint`, `typecheck` and `build` on every push, deploy Convex
-    and both Railway services from that pipeline, and check that `n8n/workflows/` matches what n8n is running.
+5. **Dates in the user's time zone.** "Today", overdue and the 09:00 reminder are UTC, so near midnight a user can
+   be told a start date is in the past, and reminders arrive at odd local hours.
+6. **CI/CD.** There is no pipeline yet. Run `npm test`, `lint`, `typecheck` and `build` on every push, deploy Convex
+   and both Railway services from that pipeline, and check that `n8n/workflows/` matches what n8n is running.
 
 ## Assignment checklist
 
