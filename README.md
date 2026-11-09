@@ -17,7 +17,7 @@ Where the two differ, this README describes what the code does.
 
 ![Incoming requests with the automation activity timeline](docs/screenshots/incoming.png)
 
-![Admin console: loans, listings, neighbors and automation failures](docs/screenshots/admin.png)
+![Admin console: loans, listings, users and automation failures](docs/screenshots/admin.png)
 
 ## Live demo
 
@@ -86,7 +86,7 @@ Convex functions live in `automation/outbox.ts` and `lib/`. Each domain test sit
 
 | Table | Purpose |
 | --- | --- |
-| `users` | Mirror of the Clerk user: `clerkId`, `email`, `name`, `role` (`admin` or `user`), `trustedLender` |
+| `users` | Mirror of the Clerk user: `clerkId`, `email`, `name`, `role` (`admin` or `user`), `trustedLender`, `deletedAt` (set when the Clerk account is deleted; the row stays for loan history), `searchText` (lowercased name and email, read by the admin search index) |
 | `tools` | Listings: owner, name, category (a category slug), condition, description. Search index on name, filterable by category |
 | `categories` | Admin-managed categories: `slug` (stable id stored on tools), `label`, `icon`, `active`, `order`. Seeded with 8 defaults (`categories/internal:seedDefaults`, also run by `npm run seed`); archived ones disappear from new listings and filters but stay on existing tools, and one can only be deleted when no tool uses it |
 | `loans` | One borrow request: tool (with a `toolName` snapshot), borrower, lender, `startDate`/`endDate` (`YYYY-MM-DD`), `status` (`pending`, `approved`, `declined`, `returned`, `cancelled`), `lastReminderAt`, `reminderCount` |
@@ -123,6 +123,20 @@ may set both to the same value locally; use different values anywhere real.
 Write-backs answer `{ "ok": true, "created": boolean }`; a replay returns `created: false` and changes nothing.
 The Convex routes return `503` if `N8N_TO_CONVEX_SECRET` is not set, `401` on a bad or stale signature, and `400`
 on a malformed body.
+
+### Clerk to Convex
+
+`POST {convex-site}/clerk/webhook` keeps the `users` table in step with Clerk. Clerk signs deliveries with Svix
+(`svix-id`, `svix-timestamp`, `svix-signature`); `convex/lib/svix.ts` checks the HMAC over `${id}.${timestamp}.${body}`
+with `CLERK_WEBHOOK_SECRET` in constant time and rejects timestamps more than 5 minutes off, without the svix library.
+
+| Event | Effect |
+| --- | --- |
+| `user.created`, `user.updated` | Insert or update the row by Clerk id (name, email, avatar). An `ADMIN_EMAILS` address becomes admin; an update never demotes |
+| `user.deleted` | Set `deletedAt`, replace the name with "Deleted user", remove their tools (pending requests are declined with the normal event; approved loans are kept). A replay changes nothing |
+
+Other event types get `200` and are ignored. The route answers `503` without the secret, `401` on a missing, stale or
+bad signature, and `400` on a body that is not a JSON object.
 
 ### What happens when a request is approved
 
@@ -187,6 +201,10 @@ cp n8n/.env.example n8n/.env
    the app shows "Your account has no email on its Clerk token".
 4. Copy the **Issuer** (your Clerk Frontend API URL, for example `https://your-app-12.clerk.accounts.dev`). This is
    `CLERK_JWT_ISSUER_DOMAIN` below.
+5. Optional, for the admin **Users** tab: Clerk Dashboard, Webhooks, **Add endpoint** with the URL
+   `{convex-site}/clerk/webhook` and the events `user.created`, `user.updated` and `user.deleted`. Copy its
+   **Signing secret** (`whsec_...`); it is `CLERK_WEBHOOK_SECRET` below. Clerk cannot reach a Convex backend running
+   on your machine, so locally use **Sync with Clerk** in the Users tab instead (it needs only `CLERK_SECRET_KEY`).
 
 ### 3. Convex (local deployment)
 
@@ -224,6 +242,8 @@ npx convex env set N8N_TO_CONVEX_SECRET <hex from above>
 npx convex env set N8N_LOAN_EVENT_WEBHOOK_URL http://localhost:5678/webhook/lendloop-loan-event
 npx convex env set ADMIN_EMAILS you@example.com
 npx convex env set APP_URL http://localhost:3000
+npx convex env set CLERK_SECRET_KEY <same value as in .env.local>   # admin name edits and Sync with Clerk
+npx convex env set CLERK_WEBHOOK_SECRET whsec_...                    # only where Clerk can reach the webhook
 ```
 
 The local Convex backend runs on your host, so it reaches n8n at `localhost:5678` (the compose file publishes the
@@ -290,6 +310,8 @@ Real values are never committed: `.env*` is gitignored except the `*.example` fi
 | `N8N_LOAN_EVENT_WEBHOOK_URL` | yes | Where Convex POSTs events, ending in `/webhook/lendloop-loan-event`. Unset means events fail terminally with a visible error |
 | `ADMIN_EMAILS` | for an admin | Comma-separated emails that become `admin`. Checked on every `ensure` (`convex/users/mutations.ts`) |
 | `APP_URL` | no | Base URL used for the links in notifications. Defaults to `http://localhost:3000` |
+| `CLERK_SECRET_KEY` | for the Users tab | Same key as in `.env.local`. Lets admins edit names and run **Sync with Clerk** through the Clerk Backend API (`convex/users/actions.ts`). Unset means those two actions say "isn't configured" |
+| `CLERK_WEBHOOK_SECRET` | for the webhook | Signing secret of the Clerk webhook endpoint (`whsec_...`). Unset means `/clerk/webhook` answers 503 |
 
 **n8n: `n8n/.env`**
 
@@ -327,16 +349,25 @@ A 4xx from Resend (for example an unverified recipient) does not break anything:
 | `/listings`, `/listings/new`, `/listings/[id]/edit` | signed in | My listings: create, edit, delete |
 | `/requests` | signed in | My outgoing requests, cancel, automation timeline per loan |
 | `/incoming` | signed in | Requests on my tools: approve, decline, mark returned, timeline |
-| `/admin` | admin | All loans, all listings (remove), users (Trusted Lender toggle), automation failures |
+| `/admin` | admin | All loans, all listings (remove), users (search, Trusted Lender, admin role, edit name, sync with Clerk), categories, automation failures |
 | `/sign-in`, `/sign-up` | public | Clerk components |
 
 **Roles.** `user` can create, edit and delete only their own listings and act only on requests involving their
-own tools or their own borrowing. `admin` can view every loan, remove any listing and flag a lender as Trusted
-Lender. Admins deliberately **cannot** approve, decline or return other people's loans (least privilege).
+own tools or their own borrowing. `admin` can view every loan, remove any listing, flag a lender as Trusted
+Lender, manage categories, grant or remove the admin role and correct a user's name. Admins deliberately
+**cannot** approve, decline or return other people's loans (least privilege).
 
-**Admin bootstrap.** There is no UI or client-settable field that grants admin. Put the email in the
-`ADMIN_EMAILS` Convex env var (comma separated); on every `ensure` (`convex/users/mutations.ts`) call, which the app makes after sign-in,
-a matching email gets `role: "admin"`. Removing an email from the list does not demote an existing admin.
+**Admin bootstrap.** The first admin comes from config: put the email in the `ADMIN_EMAILS` Convex env var (comma
+separated); on every `ensure` (`convex/users/mutations.ts`) call, which the app makes after sign-in, a matching email
+gets `role: "admin"`. Removing an email from the list does not demote an existing admin. After that, an admin can
+promote others in the **Users** tab (`users/mutations:setRole`, checked server-side). Removing the role is refused
+for yourself, for `ADMIN_EMAILS` admins (they would be re-promoted on next sign-in) and for the last remaining admin;
+the demo account cannot be promoted, and deleted accounts cannot be changed at all.
+
+**User records follow Clerk.** Clerk is the source of truth for names and emails. Name edits in the Users tab are
+written to Clerk first (`users/actions:updateName`) and then mirrored locally; the webhook, sign-in (`ensure`) and
+**Sync with Clerk** (`users/actions:syncFromClerk`, pages through every Clerk user) keep the mirror current. Clerk's
+error bodies are never passed back to the browser, only the status code.
 
 **Rules worth knowing.** Dates are ISO `YYYY-MM-DD`, the start must not be in the past (UTC) or after the end, and
 there is no limit on how long a loan can be (the borrower asks for the days they need; the lender decides). You cannot borrow your own tool. A request for days that overlap an already
@@ -386,7 +417,7 @@ access if you want to look around; otherwise the loan cards show every notificat
 
 - Every list is paginated with Convex cursor pagination (`usePaginatedQuery`, wrapped by `src/lib/hooks/usePagedQuery.ts` into Previous / Next pages): 12 cards on Browse, My listings and the public board, 6 loans on My requests and Incoming, 10 rows in admin tables. The public board drops tools that are on loan within each page, so a page can be shorter than 12.
 - Browse searches tool names through a Convex search index (`tools/queries:list` with `search`), combined with the category filter; results come back in relevance order.
-- Incoming is split into tabs (Needs your decision, Active loans, History). The admin console has tabs for Loans (status filter), Listings (search, remove with confirmation), Neighbors (Trusted lender), Categories (add, rename, change icon, reorder, archive or restore, delete when unused) and Automation failures. The active tab is kept in the URL (`?tab=`), so it survives a refresh and can be linked.
+- Incoming is split into tabs (Needs your decision, Active loans, History). The admin console has tabs for Loans (status filter), Listings (search, remove with confirmation), Users (search by name or email through a Convex search index, role filter, Trusted lender, make or remove admin, edit name, Sync with Clerk), Categories (add, rename, change icon, reorder, archive or restore, delete when unused) and Automation failures. The active tab is kept in the URL (`?tab=`), so it survives a refresh and can be linked.
 
 ## Security and data-minimization decisions
 
@@ -424,14 +455,21 @@ the contract table), so retries cannot duplicate records or reminder counters. W
 signature gets `401` and the execution ends without raising an error. Why: otherwise anyone who finds the URL
 could fill the admin error panel.
 
-**Admin is a narrow role.** It is granted from environment config and limited to view-all, remove-listing and
-trusted-lender; no acting on other people's loans.
+**Admin is a narrow role.** The first admin is granted from environment config; admins can then grant it to others,
+with guards against locking everyone out (no self-demotion, never zero admins). It covers view-all, remove-listing,
+trusted-lender, categories, roles and name corrections; no acting on other people's loans.
+
+**The Clerk webhook is verified, and Clerk's responses are not echoed.** `/clerk/webhook` accepts only Svix-signed
+requests within 5 minutes (`convex/lib/svix.ts`). The Clerk secret key stays in the Convex environment, the actions
+that use it check admin first, and a failed Clerk call surfaces only its status code. Why: the webhook can create and
+delete user records, and Clerk error bodies can contain account details.
 
 **Hardened n8n container.** Port bound to `127.0.0.1`, diagnostics off, settings-file permissions enforced, task
 runners enabled. `N8N_SECURE_COOKIE=false` is for local HTTP only and must be removed behind HTTPS.
 
-**Server-side input validation.** Names 2 to 60 characters, descriptions up to 300, strict ISO dates, 30-day
-maximum range (`convex/lib/validation.ts`, unit-tested). Why: the UI's limits are advisory.
+**Server-side input validation.** Tool names 2 to 60 characters, descriptions up to 300, category names 2 to 30,
+user names up to 50, strict ISO dates with the start not in the past or after the end (`convex/lib/validation.ts`,
+`convex/users/actions.ts`, unit-tested). Why: the UI's limits are advisory.
 
 ## Reliability and idempotency
 
@@ -471,7 +509,7 @@ Nothing fails silently: every failure path ends in an `automationLog` row.
 ## Testing
 
 ```bash
-npm test          # 93 vitest tests
+npm test          # 169 vitest tests
 npm run lint
 npm run typecheck
 npm run build
@@ -487,6 +525,12 @@ npm run build
 - **HTTP routes**: signature required, 503 without a secret, 400 on malformed bodies, a double POST creates one
   log row and one reminder bump.
 - **Signature**: sign/verify, replay window, tampering.
+- **Users admin** (`convex/users/admin.test.ts`): `setRole` guards (non-admin, self-demotion, `ADMIN_EMAILS`
+  admins, last admin, deleted and demo accounts), user search and role filter, the `searchText` backfill, the Clerk
+  webhook (503/401/400, create/update upsert, never demoting, delete removing tools and declining pending requests,
+  replays) and the Clerk actions against a mocked Clerk API (name edit, paged sync, errors, non-admin callers).
+- **Svix** (`convex/lib/svix.test.ts`): a known test vector, an independent WebCrypto signature, several signatures
+  in one header, tampering, wrong secret or version, and missing or stale timestamps.
 - **n8n workflows** (`n8n/workflows.test.ts`): workflow structure, connections, error-workflow wiring, no secrets
   in the JSON, and contract tests that run the Code nodes' logic against the signature scheme.
 
@@ -499,8 +543,8 @@ The live demo runs like this:
 | Next.js app | Railway service built from this repo (Railpack) | `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`; Next binds Railway's `PORT` |
 | n8n | Railway service built from [`n8n/railway/Dockerfile`](n8n/railway/Dockerfile) (`RAILWAY_DOCKERFILE_PATH`) | Pinned n8n 2.46.6 with the workflows baked in; imports and publishes them on boot. Step by step in [`n8n/railway/README.md`](n8n/railway/README.md) |
 | n8n database | Railway Postgres | Referenced with `${{Postgres.PGHOST}}` etc. |
-| Backend | Convex Cloud production deployment (`npx convex deploy`) | Env vars as listed above, with the Railway n8n webhook URL in `N8N_LOAN_EVENT_WEBHOOK_URL` and the Railway app URL in `APP_URL` |
-| Auth | Clerk development instance | Fine for a demo; a production instance is in the production note |
+| Backend | Convex Cloud production deployment (`npx convex deploy`) | Env vars as listed above, with the Railway n8n webhook URL in `N8N_LOAN_EVENT_WEBHOOK_URL`, the Railway app URL in `APP_URL`, and `CLERK_SECRET_KEY` plus `CLERK_WEBHOOK_SECRET` for the Users tab. After a deploy that adds `searchText`, run `npx convex run --prod users/internal:backfillSearchText` once |
+| Auth | Clerk development instance | Fine for a demo; a production instance is in the production note. A webhook endpoint posts `user.created`, `user.updated` and `user.deleted` to `https://<prod>.convex.site/clerk/webhook` |
 
 Production uses its own signing secrets and n8n encryption key, different from the local ones. Nothing secret is in
 the repo: Railway and Convex hold them as environment variables. The n8n owner account was created right after the
@@ -533,14 +577,15 @@ What I would change before running this for real:
 10. **Observability.** Structured logs with correlation ids (event id, execution id), metrics for delivery latency
     and retry counts, and uptime checks on the webhook.
 11. **Admin lifecycle.** Removing an email from `ADMIN_EMAILS` should demote the user on next sign-in (it does not
-    today), with an audit trail for role changes.
+    today), and role changes made in the Users tab should leave an audit trail (today they do not).
 12. **Time zones and availability.** Overdue and the 09:00 schedule use UTC days; make them per-neighborhood. Add
     concurrency-safe handling of overlapping pending requests (today the lender picks one and the rest fail at
     approval).
 13. **CI/CD.** Run `npm test`, `lint`, `typecheck` and `build` in CI; deploy Convex and the Railway services from one pipeline;
     export workflows from n8n in CI to detect drift against `n8n/workflows/`; scan for secrets.
 14. **Compliance posture.** Confirm Resend and n8n data-processing terms, document what personal data flows where
-    (first name, email, tool name, dates), and add account deletion that also clears automation logs.
+    (first name, email, tool name, dates). Deleting a Clerk account already anonymizes the user's name and removes
+    their tools; it should also clear their email and their automation logs.
 
 ## Assignment checklist
 
@@ -561,6 +606,7 @@ Source: [`docs/assignment.md`](docs/assignment.md).
 | "My listings", "My requests", "Incoming requests" views | `/listings`, `/requests`, `/incoming` | ✅ |
 | Nice, minimal layout | `src/app`, `src/components` | ✅ |
 | Roles: admin removes any listing, views all loans, marks Trusted Lender | `/admin`, `convex/tools/mutations.ts` (`remove`), `convex/loans/queries.ts` (`all`), `convex/users/mutations.ts` (`setTrustedLender`) | ✅ |
+| Beyond the brief: admins manage roles and names; users stay in sync with Clerk | Users tab, `convex/users/mutations.ts` (`setRole`), `convex/users/actions.ts`, `/clerk/webhook` in `convex/http.ts` | ✅ |
 | User edits/deletes only own listings; acts only on own requests | `convex/tools/mutations.ts`, `convex/loans/mutations.ts` | ✅ |
 | RBAC enforced in Convex functions, not only the UI | `convex/lib/access.ts`, RBAC tests | ✅ |
 | Workflow 1: notify on create or status change via Convex-called webhook, minimal fields | `n8n/workflows/loan-notification.json`, `convex/automation/` (`outbox.ts`, `actions.ts`, `internal.ts`) | ✅ |
@@ -577,7 +623,7 @@ Source: [`docs/assignment.md`](docs/assignment.md).
 
 ### Known limitations and verification status
 
-Verified automatically: `npm test` (93 tests), `npm run lint`, `npm run typecheck` and `npm run build` all pass.
+Verified automatically: `npm test` (169 tests), `npm run lint`, `npm run typecheck` and `npm run build` all pass.
 The n8n workflow JSON is tested structurally and its Code nodes are tested against the signature contract.
 
 **Verified end to end (2026-11-08)** against docker-compose n8n 2.46.6 and the Convex local backend, with users simulated through `npx convex run ... --identity`:
@@ -593,7 +639,7 @@ The n8n workflow JSON is tested structurally and its Code nodes are tested again
 
 - Sending through Resend has not been exercised (mock mode only). The credential import itself runs on every Railway boot (with a placeholder value), so only a real key and a real send are untested.
 
-Last verified: 2026-11-09. Unit/contract tests, the n8n 2.46.6 docker-compose and Convex local-backend run, and the Clerk browser walkthrough above. The live demo was checked the same way: a borrow loop on Convex Cloud delivered all 8 notifications through n8n on Railway and back (`webhook_delivered` and `notification_sent` for each), and a real Clerk sign-in on the Railway app showed the loans with their activity. On 2026-11-09 the n8n executions were also checked to be readable (not redacted), with the mock notification in the Mock log output. Resend delivery is still pending.
+Last verified: 2026-11-09. Unit/contract tests, the n8n 2.46.6 docker-compose and Convex local-backend run, and the Clerk browser walkthrough above. The live demo was checked the same way: a borrow loop on Convex Cloud delivered all 8 notifications through n8n on Railway and back (`webhook_delivered` and `notification_sent` for each), and a real Clerk sign-in on the Railway app showed the loans with their activity. On 2026-11-09 the n8n executions were also checked to be readable (not redacted), with the mock notification in the Mock log output. Also on 2026-11-09, the Users tab was checked on the live demo: an unsigned POST to `/clerk/webhook` gets 401, a name change in the Clerk dashboard reached the Users tab through the webhook, and a name edit in the Users tab updated Clerk. Resend delivery is still pending.
 
 Known limitations:
 
