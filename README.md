@@ -15,7 +15,7 @@ This is a take-home for Fluence. The assignment text is in [`docs/assignment.md`
 
 ![Incoming requests with the automation activity timeline](docs/screenshots/incoming.png)
 
-![Admin console: loans, listings, users and automation failures](docs/screenshots/admin.png)
+![Admin console, Users tab: search, role filter, Trusted lender, make or remove admin, edit name, Sync with Clerk](docs/screenshots/admin.png)
 
 ## Live demo
 
