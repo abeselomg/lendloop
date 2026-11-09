@@ -38,7 +38,7 @@ function Tag({ name, category, tilt }: { name: string; category: Category; tilt:
 }
 
 export function PublicToolList() {
-  const tools = useQuery(api.tools.listPublic);
+  const tools = useQuery(api.tools.queries.listPublic);
   const [filter, setFilter] = useState<Category | "all">("all");
 
   const counts = useMemo(() => {

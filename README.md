@@ -77,6 +77,11 @@ There are no Next.js API routes. The browser talks to Convex directly with the C
 decision is made in Convex functions (`convex/lib/access.ts`), not in the UI. The UI hides only what the backend
 already forbids.
 
+The Convex backend has one folder per domain (`users/`, `tools/`, `loans/`, `automation/`, `n8n/`). `queries.ts` and
+`mutations.ts` hold the public API (`api.<domain>.queries.*`, `api.<domain>.mutations.*`); `internal.ts` and `actions.ts`
+hold server-only functions (`internal.<domain>.internal.*`, `internal.<domain>.actions.*`). Plain helpers that are not
+Convex functions live in `automation/outbox.ts` and `lib/`. Each domain test sits next to its code.
+
 ### Data model (`convex/schema.ts`)
 
 | Table | Purpose |
@@ -120,10 +125,10 @@ on a malformed body.
 
 ### What happens when a request is approved
 
-1. The lender clicks Approve. The `loans.approve` mutation checks the caller is the loan's lender, the loan is
+1. The lender clicks Approve. The `approve` mutation in `convex/loans/mutations.ts` checks the caller is the loan's lender, the loan is
    still `pending`, and no other approved loan on that tool overlaps the dates.
 2. In the same transaction it sets `status: "approved"`, inserts an `automationEvents` row (`loan.approved`,
-   recipient = borrower) and schedules `internal.automation.deliverEvent`. If the mutation commits, the event
+   recipient = borrower) and schedules `internal.automation.actions.deliverEvent`. If the mutation commits, the event
    exists and a delivery is scheduled.
 3. `deliverEvent` builds a minimal payload, signs it with `CONVEX_TO_N8N_SECRET` and POSTs it to
    `N8N_LOAN_EVENT_WEBHOOK_URL`.
@@ -282,7 +287,7 @@ Real values are never committed: `.env*` is gitignored except the `*.example` fi
 | `CONVEX_TO_N8N_SECRET` | yes | HMAC secret Convex uses to sign events to n8n. Must equal n8n's value |
 | `N8N_TO_CONVEX_SECRET` | yes | HMAC secret Convex uses to verify n8n's write-backs. Must equal n8n's value. Unset means `/n8n/*` answers 503 |
 | `N8N_LOAN_EVENT_WEBHOOK_URL` | yes | Where Convex POSTs events, ending in `/webhook/lendloop-loan-event`. Unset means events fail terminally with a visible error |
-| `ADMIN_EMAILS` | for an admin | Comma-separated emails that become `admin`. Checked on every `users.ensure` |
+| `ADMIN_EMAILS` | for an admin | Comma-separated emails that become `admin`. Checked on every `ensure` (`convex/users/mutations.ts`) |
 | `APP_URL` | no | Base URL used for the links in notifications. Defaults to `http://localhost:3000` |
 
 **n8n: `n8n/.env`**
@@ -329,14 +334,14 @@ own tools or their own borrowing. `admin` can view every loan, remove any listin
 Lender. Admins deliberately **cannot** approve, decline or return other people's loans (least privilege).
 
 **Admin bootstrap.** There is no UI or client-settable field that grants admin. Put the email in the
-`ADMIN_EMAILS` Convex env var (comma separated); on every `users.ensure` call, which the app makes after sign-in,
+`ADMIN_EMAILS` Convex env var (comma separated); on every `ensure` (`convex/users/mutations.ts`) call, which the app makes after sign-in,
 a matching email gets `role: "admin"`. Removing an email from the list does not demote an existing admin.
 
 **Rules worth knowing.** Dates are ISO `YYYY-MM-DD`, the start must not be in the past (UTC) or after the end, and
 a range is at most 30 days. You cannot borrow your own tool. A request for days that overlap an already
-**approved** loan is rejected (`loans.request`), and approval checks again (`loans.approve`). Overlapping **pending**
+**approved** loan is rejected (`request` in `convex/loans/mutations.ts`), and approval checks again (`approve`). Overlapping **pending**
 requests are allowed (the lender chooses). Dates are picked on a calendar that crosses out booked days
-(`loans.bookedRanges` returns only the start and end dates of approved loans, never who borrowed), so a tool that is
+(`bookedRanges` in `convex/loans/queries.ts` returns only the start and end dates of approved loans, never who borrowed), so a tool that is
 on loan can still be requested for free days. A borrower can cancel while pending, or while approved but not yet
 started.
 
@@ -384,7 +389,7 @@ the caller from `ctx.auth.getUserIdentity()` and loads the user by Clerk id (`re
 `loan.lenderId` after loading the document. Why: the client is untrusted, so no function accepts a user id or role
 as an argument.
 
-**The public query is projected.** `tools.listPublic` returns only `{_id, name, category}` and hides tools that are
+**The public query is projected.** `listPublic` in `convex/tools/queries.ts` returns only `{_id, name, category}` and hides tools that are
 currently on loan. Owner, condition and description never leave the server unauthenticated. Why: the assignment
 asks for no owner details on the public page, and a projection in the query is stronger than hiding fields in the
 UI.
@@ -539,24 +544,24 @@ Source: [`docs/assignment.md`](docs/assignment.md).
 | Requirement | Where | Status |
 | --- | --- | --- |
 | Company name LendLoop, tagline | `src/app/page.tsx` | ✅ |
-| Public read-only list, name and category only, from Convex | `src/components/PublicToolList.tsx`, `convex/tools.ts` (`listPublic`) | ✅ |
+| Public read-only list, name and category only, from Convex | `src/components/PublicToolList.tsx`, `convex/tools/queries.ts` (`listPublic`) | ✅ |
 | "Sign in to lend or borrow" button wired to Clerk | `src/app/page.tsx` (`SignInButton`) | ✅ |
-| Signed-in users can list a tool (name, category, condition, description) | `/listings/new`, `convex/tools.ts` (`create`) | ✅ |
-| Request to borrow for a date range | `src/components/RequestDialog.tsx`, `convex/loans.ts` (`request`) | ✅ |
-| Approve or decline requests on own tools | `/incoming`, `convex/loans.ts` (`approve`, `decline`) | ✅ |
-| Mark a loan as returned | `/incoming`, `convex/loans.ts` (`markReturned`) | ✅ |
-| All tools with availability, filter by category | `/browse`, `convex/tools.ts` (`list`) | ✅ |
+| Signed-in users can list a tool (name, category, condition, description) | `/listings/new`, `convex/tools/mutations.ts` (`create`) | ✅ |
+| Request to borrow for a date range | `src/components/RequestDialog.tsx`, `convex/loans/mutations.ts` (`request`) | ✅ |
+| Approve or decline requests on own tools | `/incoming`, `convex/loans/mutations.ts` (`approve`, `decline`) | ✅ |
+| Mark a loan as returned | `/incoming`, `convex/loans/mutations.ts` (`markReturned`) | ✅ |
+| All tools with availability, filter by category | `/browse`, `convex/tools/queries.ts` (`list`) | ✅ |
 | "My listings", "My requests", "Incoming requests" views | `/listings`, `/requests`, `/incoming` | ✅ |
 | Nice, minimal layout | `src/app`, `src/components` | ✅ |
-| Roles: admin removes any listing, views all loans, marks Trusted Lender | `/admin`, `convex/tools.ts` (`remove`), `convex/loans.ts` (`all`), `convex/users.ts` (`setTrustedLender`) | ✅ |
-| User edits/deletes only own listings; acts only on own requests | `convex/tools.ts`, `convex/loans.ts` | ✅ |
+| Roles: admin removes any listing, views all loans, marks Trusted Lender | `/admin`, `convex/tools/mutations.ts` (`remove`), `convex/loans/queries.ts` (`all`), `convex/users/mutations.ts` (`setTrustedLender`) | ✅ |
+| User edits/deletes only own listings; acts only on own requests | `convex/tools/mutations.ts`, `convex/loans/mutations.ts` | ✅ |
 | RBAC enforced in Convex functions, not only the UI | `convex/lib/access.ts`, RBAC tests | ✅ |
-| Workflow 1: notify on create or status change via Convex-called webhook, minimal fields | `n8n/workflows/loan-notification.json`, `convex/automation.ts` | ✅ |
-| Workflow 2: daily overdue reminders from a Convex HTTP endpoint, write status back | `n8n/workflows/overdue-reminders.json`, `convex/http.ts`, `convex/n8n.ts` | ✅ |
+| Workflow 1: notify on create or status change via Convex-called webhook, minimal fields | `n8n/workflows/loan-notification.json`, `convex/automation/` (`outbox.ts`, `actions.ts`, `internal.ts`) | ✅ |
+| Workflow 2: daily overdue reminders from a Convex HTTP endpoint, write status back | `n8n/workflows/overdue-reminders.json`, `convex/http.ts`, `convex/n8n/internal.ts` | ✅ |
 | HMAC-signed payloads, verified on the receiving side (both directions) | `convex/lib/signature.ts`, Code nodes in the workflows | ✅ |
 | Secrets in env vars and n8n credentials, not in code or exported JSON | `.env.example`, `n8n/.env.example`, `n8n/docker-compose.yml`, workflow JSON test | ✅ |
-| Idempotent write-backs | `convex/n8n.ts`, `automationLog.idempotencyKey` | ✅ |
-| Retries and an error workflow; failures visible | Outbox backoff in `convex/automation.ts`, `n8n/workflows/error-handler.json`, `/admin` | ✅ |
+| Idempotent write-backs | `convex/n8n/internal.ts`, `automationLog.idempotencyKey` | ✅ |
+| Retries and an error workflow; failures visible | Outbox backoff in `convex/automation/outbox.ts`, `n8n/workflows/error-handler.json`, `/admin` | ✅ |
 | Bonus: recent automation activity on each loan | `src/components/ActivityList.tsx` in `LoanCard`, on `/requests`, `/incoming`, `/admin` | ✅ |
 | GitHub repo with app source | this repository | ✅ |
 | Exported n8n workflow JSON in the repo | `n8n/workflows/*.json` | ✅ |

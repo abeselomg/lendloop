@@ -8,10 +8,10 @@ import { LoanActionButton } from "@/components/LoanActionButton";
 import { LoanListSkeleton } from "@/components/Skeleton";
 
 export default function IncomingPage() {
-  const loans = useQuery(api.loans.incoming);
-  const approve = useMutation(api.loans.approve);
-  const decline = useMutation(api.loans.decline);
-  const markReturned = useMutation(api.loans.markReturned);
+  const loans = useQuery(api.loans.queries.incoming);
+  const approve = useMutation(api.loans.mutations.approve);
+  const decline = useMutation(api.loans.mutations.decline);
+  const markReturned = useMutation(api.loans.mutations.markReturned);
 
   const sections = loans
     ? [

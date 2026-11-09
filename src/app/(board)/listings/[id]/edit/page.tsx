@@ -12,8 +12,8 @@ import { FormSkeleton } from "@/components/Skeleton";
 export default function EditListingPage() {
   const params = useParams<{ id: string }>();
   const toolId = params.id as Id<"tools">;
-  const tool = useQuery(api.tools.get, { toolId });
-  const update = useMutation(api.tools.update);
+  const tool = useQuery(api.tools.queries.get, { toolId });
+  const update = useMutation(api.tools.mutations.update);
   const router = useRouter();
 
   if (tool === undefined) {

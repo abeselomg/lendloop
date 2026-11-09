@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, internal } from "./_generated/api";
-import { makeT, signIn } from "./test.setup";
-import type { Id } from "./_generated/dataModel";
-import { verifySignature } from "./lib/signature";
-import { BACKOFF_MS, MAX_ATTEMPTS } from "./automation";
+import { api, internal } from "../_generated/api";
+import { makeT, signIn } from "../test.setup";
+import type { Id } from "../_generated/dataModel";
+import { verifySignature } from "../lib/signature";
+import { BACKOFF_MS, MAX_ATTEMPTS } from "./outbox";
 
 const SECRET = "test-secret-value";
 const URL_ = "https://n8n.example.com/webhook/loan-event";
@@ -14,13 +14,13 @@ async function setup() {
   const t = makeT();
   const alice = await signIn(t, "alice"); // borrower
   const bob = await signIn(t, "bob"); // lender
-  const toolId = await bob.mutation(api.tools.create, {
+  const toolId = await bob.mutation(api.tools.mutations.create, {
     name: "Cordless Drill",
     category: "power_tools",
     condition: "good",
     description: DESCRIPTION,
   });
-  const loanId = await alice.mutation(api.loans.request, { toolId, startDate: addDays(1), endDate: addDays(3) });
+  const loanId = await alice.mutation(api.loans.mutations.request, { toolId, startDate: addDays(1), endDate: addDays(3) });
   const [event] = await t.run((ctx) => ctx.db.query("automationEvents").collect());
   return { t, alice, bob, loanId, event };
 }
@@ -107,7 +107,7 @@ describe("automation outbox", () => {
   it("fails permanently after MAX_ATTEMPTS with webhook_failed log", async () => {
     const { t, event } = await setup(); // not flushed: event stays pending
     for (let i = 0; i < MAX_ATTEMPTS; i++) {
-      const r = await t.mutation(internal.automation.markAttemptFailed, { eventId: event._id, error: "boom" });
+      const r = await t.mutation(internal.automation.internal.markAttemptFailed, { eventId: event._id, error: "boom" });
       expect(r.willRetry).toBe(i < MAX_ATTEMPTS - 1);
     }
     const after = await getEvent(t, event._id);
@@ -135,7 +135,7 @@ describe("automation outbox", () => {
     const { t, event } = await setup();
     await flush(t);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    await t.action(internal.automation.deliverEvent, { eventId: event._id });
+    await t.action(internal.automation.actions.deliverEvent, { eventId: event._id });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect((await logs(t)).filter((x) => x.kind === "webhook_delivered")).toHaveLength(1);
     expect((await getEvent(t, event._id))?.status).toBe("delivered");
@@ -168,9 +168,9 @@ describe("automation outbox", () => {
         createdAt: Date.now(),
       }),
     );
-    await expect(alice.query(api.automation.listFailures, {})).rejects.toThrow("Admin only");
+    await expect(alice.query(api.automation.queries.listFailures, {})).rejects.toThrow("Admin only");
     const admin = await signIn(t, "admin");
-    const res = await admin.query(api.automation.listFailures, {});
+    const res = await admin.query(api.automation.queries.listFailures, {});
     expect(res.events).toHaveLength(1);
     expect(res.events[0]).toMatchObject({
       type: "loan.requested",

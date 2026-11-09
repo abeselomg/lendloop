@@ -15,7 +15,7 @@ const LINKS = [
 
 export function Nav() {
   const pathname = usePathname();
-  const me = useQuery(api.users.me);
+  const me = useQuery(api.users.queries.me);
   const links =
     me?.role === "admin" ? [...LINKS, { href: "/admin", label: "Admin" }] : LINKS;
 

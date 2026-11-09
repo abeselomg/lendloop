@@ -6,7 +6,7 @@ import { api } from "@convex/_generated/api";
 
 export function UserSync() {
   const { isAuthenticated } = useConvexAuth();
-  const ensure = useMutation(api.users.ensure);
+  const ensure = useMutation(api.users.mutations.ensure);
   useEffect(() => {
     if (isAuthenticated) void ensure({});
   }, [isAuthenticated, ensure]);

@@ -8,18 +8,24 @@
  * @module
  */
 
-import type * as automation from "../automation.js";
+import type * as automation_actions from "../automation/actions.js";
+import type * as automation_internal from "../automation/internal.js";
+import type * as automation_outbox from "../automation/outbox.js";
+import type * as automation_queries from "../automation/queries.js";
 import type * as http from "../http.js";
 import type * as lib_access from "../lib/access.js";
 import type * as lib_env from "../lib/env.js";
 import type * as lib_signature from "../lib/signature.js";
 import type * as lib_validation from "../lib/validation.js";
 import type * as lib_views from "../lib/views.js";
-import type * as loans from "../loans.js";
-import type * as n8n from "../n8n.js";
+import type * as loans_mutations from "../loans/mutations.js";
+import type * as loans_queries from "../loans/queries.js";
+import type * as n8n_internal from "../n8n/internal.js";
 import type * as seed from "../seed.js";
-import type * as tools from "../tools.js";
-import type * as users from "../users.js";
+import type * as tools_mutations from "../tools/mutations.js";
+import type * as tools_queries from "../tools/queries.js";
+import type * as users_mutations from "../users/mutations.js";
+import type * as users_queries from "../users/queries.js";
 
 import type {
   ApiFromModules,
@@ -28,18 +34,24 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  automation: typeof automation;
+  "automation/actions": typeof automation_actions;
+  "automation/internal": typeof automation_internal;
+  "automation/outbox": typeof automation_outbox;
+  "automation/queries": typeof automation_queries;
   http: typeof http;
   "lib/access": typeof lib_access;
   "lib/env": typeof lib_env;
   "lib/signature": typeof lib_signature;
   "lib/validation": typeof lib_validation;
   "lib/views": typeof lib_views;
-  loans: typeof loans;
-  n8n: typeof n8n;
+  "loans/mutations": typeof loans_mutations;
+  "loans/queries": typeof loans_queries;
+  "n8n/internal": typeof n8n_internal;
   seed: typeof seed;
-  tools: typeof tools;
-  users: typeof users;
+  "tools/mutations": typeof tools_mutations;
+  "tools/queries": typeof tools_queries;
+  "users/mutations": typeof users_mutations;
+  "users/queries": typeof users_queries;
 }>;
 
 /**

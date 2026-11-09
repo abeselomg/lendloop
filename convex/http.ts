@@ -71,7 +71,7 @@ http.route({
     const v = await verified(request);
     if (!v.ok) return v.response;
     const today = todayUtc();
-    const loans = await ctx.runQuery(internal.n8n.overdueLoans, { today });
+    const loans = await ctx.runQuery(internal.n8n.internal.overdueLoans, { today });
     return json({ today, loans });
   }),
 });
@@ -93,7 +93,7 @@ http.route({
     const bad = badStatus(o);
     if (bad) return bad;
     return guarded(() =>
-      ctx.runMutation(internal.n8n.recordNotification, {
+      ctx.runMutation(internal.n8n.internal.recordNotification, {
         eventId: o.eventId as string,
         channel: o.channel as string,
         status: o.status as "sent" | "failed",
@@ -122,7 +122,7 @@ http.route({
     const bad = badStatus(o);
     if (bad) return bad;
     return guarded(() =>
-      ctx.runMutation(internal.n8n.recordReminder, {
+      ctx.runMutation(internal.n8n.internal.recordReminder, {
         reminderKey: o.reminderKey as string,
         loanId: o.loanId as string,
         channel: o.channel as string,
@@ -150,7 +150,7 @@ http.route({
     });
     if (o instanceof Response) return o;
     return guarded(() =>
-      ctx.runMutation(internal.n8n.recordWorkflowError, {
+      ctx.runMutation(internal.n8n.internal.recordWorkflowError, {
         executionId: o.executionId as string,
         workflowName: o.workflowName as string,
         nodeName: opt(o.nodeName),

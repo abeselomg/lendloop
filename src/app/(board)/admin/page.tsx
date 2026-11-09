@@ -15,7 +15,7 @@ import { formatDateRange, relativeTime } from "@/lib/labels";
 import { PageSkeleton, RowsSkeleton } from "@/components/Skeleton";
 
 export default function AdminPage() {
-  const me = useQuery(api.users.me);
+  const me = useQuery(api.users.queries.me);
   if (me === undefined) return <PageSkeleton label="Loading" pathname="/admin" />;
   if (me === null || me.role !== "admin") {
     return (
@@ -50,7 +50,7 @@ function TrustToggle({
   trusted: boolean;
   name: string;
 }) {
-  const setTrusted = useMutation(api.users.setTrustedLender);
+  const setTrusted = useMutation(api.users.mutations.setTrustedLender);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,11 +97,11 @@ function TrustToggle({
 }
 
 function AdminConsole() {
-  const loans = useQuery(api.loans.all);
-  const tools = useQuery(api.tools.listAllAdmin);
-  const users = useQuery(api.users.listAll);
-  const failures = useQuery(api.automation.listFailures);
-  const removeTool = useMutation(api.tools.remove);
+  const loans = useQuery(api.loans.queries.all);
+  const tools = useQuery(api.tools.queries.listAllAdmin);
+  const users = useQuery(api.users.queries.listAll);
+  const failures = useQuery(api.automation.queries.listFailures);
+  const removeTool = useMutation(api.tools.mutations.remove);
 
   return (
     <div>

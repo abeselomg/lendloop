@@ -10,8 +10,8 @@ import { LoanActionButton } from "@/components/LoanActionButton";
 import { LoanListSkeleton } from "@/components/Skeleton";
 
 export default function RequestsPage() {
-  const loans = useQuery(api.loans.mine);
-  const cancel = useMutation(api.loans.cancel);
+  const loans = useQuery(api.loans.queries.mine);
+  const cancel = useMutation(api.loans.mutations.cancel);
 
   return (
     <div>

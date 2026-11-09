@@ -60,8 +60,8 @@ function RequestForm({
   onClose: () => void;
   onSent?: () => void;
 }) {
-  const request = useMutation(api.loans.request);
-  const booked = useQuery(api.loans.bookedRanges, { toolId: tool._id });
+  const request = useMutation(api.loans.mutations.request);
+  const booked = useQuery(api.loans.queries.bookedRanges, { toolId: tool._id });
   const [dates, setDates] = useState<DateSelection>({ start: null, end: null });
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);

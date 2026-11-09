@@ -8,7 +8,7 @@ import { Nav } from "@/components/Nav";
 import { PageSkeleton } from "@/components/Skeleton";
 
 export default function BoardLayout({ children }: { children: ReactNode }) {
-  const me = useQuery(api.users.me);
+  const me = useQuery(api.users.queries.me);
   const pathname = usePathname();
   return (
     <>

@@ -15,8 +15,8 @@ const primaryLink =
   "rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-accent-ink transition-opacity hover:opacity-90";
 
 export default function ListingsPage() {
-  const tools = useQuery(api.tools.mine);
-  const remove = useMutation(api.tools.remove);
+  const tools = useQuery(api.tools.queries.mine);
+  const remove = useMutation(api.tools.mutations.remove);
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<Id<"tools"> | null>(null);
 

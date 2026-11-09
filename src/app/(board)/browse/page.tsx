@@ -23,7 +23,7 @@ export default function BrowsePage() {
   const [category, setCategory] = useState<Category | null>(null);
   const [requesting, setRequesting] = useState<ToolView | null>(null);
   const [sent, setSent] = useState(false);
-  const tools = useQuery(api.tools.list, category ? { category } : {});
+  const tools = useQuery(api.tools.queries.list, category ? { category } : {});
 
   useEffect(() => {
     if (!sent) return;

@@ -1,8 +1,8 @@
 import { ConvexError, v } from "convex/values";
-import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
-import { firstNameOf } from "./lib/access";
-import { EVENT_LABELS, daysBetween, todayUtc } from "./lib/validation";
+import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import { firstNameOf } from "../lib/access";
+import { EVENT_LABELS, daysBetween, todayUtc } from "../lib/validation";
 
 const statusValidator = v.union(v.literal("sent"), v.literal("failed"));
 

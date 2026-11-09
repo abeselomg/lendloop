@@ -11,13 +11,13 @@ async function setup() {
   const t = makeT();
   const alice = await signIn(t, "alice"); // borrower
   const bob = await signIn(t, "bob"); // lender
-  const toolId = await bob.mutation(api.tools.create, {
+  const toolId = await bob.mutation(api.tools.mutations.create, {
     name: "Cordless Drill",
     category: "power_tools",
     condition: "good",
     description: "d",
   });
-  const loanId = await alice.mutation(api.loans.request, { toolId, startDate: addDays(1), endDate: addDays(3) });
+  const loanId = await alice.mutation(api.loans.mutations.request, { toolId, startDate: addDays(1), endDate: addDays(3) });
   const [event] = await t.run((ctx) => ctx.db.query("automationEvents").collect());
   const users = await t.run((ctx) => ctx.db.query("users").collect());
   const borrowerId = users.find((u) => u.email === "alice@example.com")!._id;
@@ -158,7 +158,7 @@ describe("n8n http endpoints", () => {
     });
     expect(await res.json()).toEqual({ ok: true, created: true });
     const admin = await signIn(t, "admin");
-    const { errors } = await admin.query(api.automation.listFailures, {});
+    const { errors } = await admin.query(api.automation.queries.listFailures, {});
     expect(errors).toHaveLength(1);
     expect(errors[0].message).toBe("Loan events: boom");
   });

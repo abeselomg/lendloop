@@ -17,6 +17,6 @@ export const identities = {
 
 export async function signIn(t: ReturnType<typeof makeT>, who: keyof typeof identities) {
   const u = t.withIdentity(identities[who]);
-  await u.mutation(api.users.ensure, {});
+  await u.mutation(api.users.mutations.ensure, {});
   return u;
 }

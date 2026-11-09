@@ -6,7 +6,7 @@ import { api } from "@convex/_generated/api";
 import { ToolForm } from "@/components/ToolForm";
 
 export default function NewListingPage() {
-  const create = useMutation(api.tools.create);
+  const create = useMutation(api.tools.mutations.create);
   const router = useRouter();
 
   return (
