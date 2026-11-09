@@ -28,6 +28,11 @@ Where the two differ, this README describes what the code does.
   to play lender and borrower.
 - The board is seeded with demo tools and a few loans between two test neighbors, Alice and Bob.
 - Notifications run in mock mode: each one is logged by n8n and shows on the loan ("Request mock notification sent").
+- n8n: **<https://n8n-production-1175.up.railway.app>**. The login is sent with the submission rather than published
+  here, because anyone signed in to n8n can run code on the server and read its secrets. Without a login, the
+  screenshots in [Watching the automation in n8n](#watching-the-automation-in-n8n) show the same runs.
+- The admin console (`/admin`) needs an admin account. New sign-ups get the normal user role; ask and your account
+  will be made an admin from the Users tab.
 - Hosting: the Next.js app and n8n (with Postgres) on Railway, the backend on Convex Cloud, auth on a Clerk
   development instance. Details in [Deployment](#deployment).
 
@@ -383,7 +388,9 @@ To see the full approve-and-return flow, list a tool with one account and reques
 
 ### Watching the automation in n8n
 
-Sign in at <http://localhost:5678> with the owner account you created during setup.
+Sign in at <http://localhost:5678> with the owner account you created during setup, or at the live demo's n8n
+(<https://n8n-production-1175.up.railway.app>) with the login sent with the submission. The screenshots below are
+from the live demo.
 
 - **Every run:** sidebar **Overview**, tab **Executions** (or open a workflow and use its own **Executions** tab).
   Green runs succeeded, red ones failed. Each borrow request, approval, decline, return or cancellation in the app
